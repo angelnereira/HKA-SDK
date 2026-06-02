@@ -12,7 +12,10 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - Geographic catalog (provincia/distrito/corregimiento) with the 13 provinces
     embedded and `ParseUbicacion`/`ValidateUbicacion`/`Resolve`.
   - `ParseCedula`/`ValidateCedula` and `ParseRUC`/`ValidateRUC` (natural vs juridical).
-  - `ValidateCUFE` plus `DescribeCUFE`/`DescribeCAFE`.
+  - `ValidateCUFE`/`ParseCUFE` (decodes the verified leading fields: tipo de
+    documento and ambiente) plus `DescribeCUFE`/`DescribeCAFE`/`DescribeFormatoCAFE`
+    and the `AmbienteCUFE` type.
+  - `DownloadResponse.Bytes()` decodes the Base64 CAFE PDF / signed XML to raw bytes.
   - ITBMS rate model (7/10/15/exempt) with `SugerirTasa` description classifier.
   - CPBS structure validation (`ValidateCPBS`, `AbrevForCPBS`, `CPBSByCodigo`).
 - `tools/gencatalog` — regenerates the full geographic catalog from an official

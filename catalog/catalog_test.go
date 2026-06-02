@@ -92,6 +92,36 @@ func TestCUFE(t *testing.T) {
 	}
 }
 
+func TestParseCUFE(t *testing.T) {
+	// real-world example: factura interna (01) emitted in the test environment (2)
+	cufe := "FE0120000155596713-2-2015-5900012019052800055000155650121566749040"
+	if len(cufe) != catalog.CUFELength {
+		t.Fatalf("example CUFE len = %d, want 66", len(cufe))
+	}
+	info, err := catalog.ParseCUFE(cufe)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.TipoDocumento != types.TipoDocFacturaInterna {
+		t.Errorf("TipoDocumento = %q, want 01", info.TipoDocumento)
+	}
+	if info.Ambiente != catalog.AmbientePruebas {
+		t.Errorf("Ambiente = %q, want pruebas (2)", info.Ambiente)
+	}
+	if _, err := catalog.ParseCUFE("FE123"); err == nil {
+		t.Error("short CUFE should fail to parse")
+	}
+}
+
+func TestDescribeFormatoCAFE(t *testing.T) {
+	if got := catalog.DescribeFormatoCAFE(types.CAFECintaPapel); got == "" || got == "Formato CAFE desconocido" {
+		t.Errorf("unexpected description for cinta papel: %q", got)
+	}
+	if got := catalog.DescribeFormatoCAFE(types.CAFEPapelCarta); got == "" || got == "Formato CAFE desconocido" {
+		t.Errorf("unexpected description for papel carta: %q", got)
+	}
+}
+
 func TestITBMSClassifier(t *testing.T) {
 	cases := []struct {
 		desc string

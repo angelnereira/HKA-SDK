@@ -12,7 +12,7 @@ regenerarse desde su fuente oficial.
 | Ubicación geográfica (provincia-distrito-corregimiento) | `Provincias`, `ProvinciaByCodigo`, `ParseUbicacion`, `ValidateUbicacion`, `Ubicacion.Resolve` | INEC — 13 provincias autoritativas embebidas; distritos/corregimientos regenerables |
 | Cédula | `ParseCedula`, `ValidateCedula`, `DescribePrefijo`, `SpecialCedulaPrefijos` | Formato `PREFIJO-TOMO-PARTIDA` |
 | RUC | `ParseRUC`, `ValidateRUC` (natural = cédula, jurídico = `FOLIO-ROLLO-AÑO`) | Estructura; el DV autoritativo se obtiene con `client.QueryRUC` |
-| CUFE / CAFE | `ValidateCUFE`, `CUFELength`, `DescribeCUFE`, `DescribeCAFE` | Validación de forma (66 chars, prefijo `FE`) |
+| CUFE / CAFE | `ValidateCUFE`, `ParseCUFE`, `DescribeCUFE`, `DescribeCAFE`, `DescribeFormatoCAFE` | Forma (66 chars, `FE`) + campos iniciales; CAFE vía `DownloadPDF().Bytes()` |
 | ITBMS | `SugerirCategoria`, `SugerirTasa`, `ITBMSCategoria`, `PorcentajeDeTasa` | DGI — 7% / 10% / 15% / exento |
 | CPBS | `ValidateCPBS`, `AbrevForCPBS`, `CPBSByCodigo`, `CPBSCategorias` | Estructura 2/4 dígitos; catálogo regenerable |
 
@@ -33,14 +33,40 @@ del Canal), `E` (extranjero residente), `N` (naturalizado), `AV` (casos especial
 - El **dígito verificador (DV)** lo emite la DGI y viaja aparte en
   `digitoVerificadorRUC`. No se calcula localmente; usa `QueryRUC` para obtenerlo.
 
-### CUFE / CAFE
-- **CUFE** (Código Único de Factura Electrónica): identificador único de 66
-  caracteres que comienza con `FE`, generado y firmado por HKA/DGI. El cliente
-  nunca lo construye; el SDK valida su forma.
-- **CAFE** (Comprobante Auxiliar de Factura Electrónica): el PDF legible del
-  documento autorizado.
-- Composición campo a campo y algoritmo del DV: ver la *Ficha Técnica de Factura
-  Electrónica* de la DGI (https://dgi.mef.gob.pa/_7facturaelectronica/ftPAC).
+### CUFE — Código Único de Factura Electrónica
+Identificador alfanumérico (~66 caracteres, comienza con `FE`) que individualiza
+cada documento autorizado por la DGI. Lo **genera el sistema emisor** siguiendo el
+algoritmo dictado por la DGI; en el modelo de integración HKA el PAC lo **devuelve
+al autorizar** (código 200). Es el **dato lógico a persistir**: es obligatorio para
+referenciar desde notas de crédito/débito (tipos 04/05), identifica el documento en
+`RastreoCorreo` (`TrackEmail`) y permite verificarlo en el portal de la DGI. El
+cliente nunca lo construye.
+
+```go
+cufe := "FE0120000155596713-2-2015-5900012019052800055000155650121566749040"
+info, _ := catalog.ParseCUFE(cufe)
+info.TipoDocumento     // "01" (factura interna)
+info.Ambiente          // "2" -> Pruebas/Demo (1 = Producción)
+```
+
+`ParseCUFE` decodifica solo los campos iniciales documentados y verificados
+(prefijo `FE`, tipo de documento, ambiente). La composición campo a campo completa
+y el algoritmo del dígito verificador están en la *Ficha Técnica de Factura
+Electrónica* de la DGI (https://dgi.mef.gob.pa/_7facturaelectronica/ftPAC).
+
+### CAFE — Comprobante Auxiliar de Factura Electrónica
+Representación gráfica/PDF del documento autorizado que se entrega al receptor. Se
+genera a partir del XML autorizado y se obtiene con `DescargaPDF` (`DownloadPDF`),
+que devuelve el PDF **codificado en Base64**. Sus elementos distintivos son el
+**código QR**, el **CUFE** y los datos de autorización. Debe permanecer legible al
+menos **6 meses**. Formatos (`FormatoCAFE`): `2` cinta de papel (POS/retail), `3`
+papel carta (administrativa/B2B); `1` sin generación.
+
+```go
+resp, _ := client.DownloadPDF(ctx, creds, key, serial)
+pdf, _ := resp.Bytes()              // decodifica el Base64
+os.WriteFile("cafe.pdf", pdf, 0o644)
+```
 
 ### ITBMS
 - **7%** tasa general.
