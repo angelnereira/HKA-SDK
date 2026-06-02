@@ -1,13 +1,15 @@
 package types
 
+import "encoding/base64"
+
 // SendResponse is the typed response from Send().
 type SendResponse struct {
-	Code                    ReturnCode
-	Result                  string
-	Message                 string
-	CUFE                    string
-	QR                      string
-	FechaRecepcionDGI       string
+	Code                     ReturnCode
+	Result                   string
+	Message                  string
+	CUFE                     string
+	QR                       string
+	FechaRecepcionDGI        string
 	NroProtocoloAutorizacion string
 }
 
@@ -37,6 +39,13 @@ type DownloadResponse struct {
 	Result   string
 	Message  string
 	Document string // Base64-encoded XML or PDF
+}
+
+// Bytes decodes the Base64 Document into its raw bytes. For DownloadPDF this is the
+// CAFE PDF; for DownloadXML it is the signed XML. The result can be written directly
+// to a file (e.g. os.WriteFile("cafe.pdf", b, 0o644)).
+func (r *DownloadResponse) Bytes() ([]byte, error) {
+	return base64.StdEncoding.DecodeString(r.Document)
 }
 
 // FoliosResponse details folio availability for the authenticated tenant.

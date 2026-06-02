@@ -6,6 +6,50 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `gateway` package + `cmd/hka-gateway` — a language-neutral JSON/HTTP service that
+  wraps the builder, validation, catalog and SOAP client. Endpoints for building
+  (dry-run), sending, status, cancel, XML/PDF download, email, folios, RUC query and
+  catalog lookups. Credentials are per-request headers (multi-tenant). `openapi.yaml`
+  documents the contract for client codegen; `Dockerfile` and `docs/GATEWAY.md` cover
+  running it and consuming it from TypeScript/JavaScript/Python.
+- `catalog` package — reference catalogs and code-format helpers as SDK types:
+  - Geographic catalog (provincia/distrito/corregimiento) with the 13 provinces
+    embedded and `ParseUbicacion`/`ValidateUbicacion`/`Resolve`.
+  - `ParseCedula`/`ValidateCedula` and `ParseRUC`/`ValidateRUC` (natural vs juridical).
+  - `ValidateCUFE`/`ParseCUFE` (decodes the verified leading fields: tipo de
+    documento and ambiente) plus `DescribeCUFE`/`DescribeCAFE`/`DescribeFormatoCAFE`
+    and the `AmbienteCUFE` type.
+  - `DownloadResponse.Bytes()` decodes the Base64 CAFE PDF / signed XML to raw bytes.
+  - ITBMS rate model (7/10/15/exempt) with `SugerirTasa` description classifier.
+  - CPBS structure validation (`ValidateCPBS`, `AbrevForCPBS`, `CPBSByCodigo`).
+- `tools/gencatalog` — regenerates the full geographic catalog from an official
+  normalized CSV export; `docs/CATALOGS.md` documents sources and the procedure.
+- `Builder.AutoTasaITBMS()` — opt-in inference of empty item ITBMS rates from the
+  item description via the catalog classifier.
+
+### Changed
+
+- Validation now checks `codigoUbicacion` shape and CPBS code consistency when
+  those fields are present.
+
+- `docbuilder` package — safe-by-construction builders for the ten document
+  types. Each constructor preselects the required transaction defaults; items are
+  given natural values and the builder computes item ITBMS, item totals and all
+  document totals, then validates before returning a ready-to-send document.
+- Client constructors: `ClienteContribuyente`, `ClienteContribuyenteNatural`,
+  `ClienteConsumidorFinal`, `ClienteGobierno`, `ClienteExtranjero`.
+- `examples/builder_quickstart` demonstrating the builder end-to-end.
+- `docs/ANALYSIS.md` — project gap analysis and roadmap (REST/JSON gateway +
+  OpenAPI for polyglot consumption).
+
+### Fixed
+
+- `listaPagoPlazo` now emits the schema-correct element names `fechaVenceCuota`
+  and `valorCuota` (previously `fechaPago`/`valorCuotaPlazo`/`descripcionCuota`),
+  which caused deferred-payment documents to be malformed.
+
 ## [1.0.0] - In Progress
 
 ### Added

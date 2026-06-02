@@ -100,6 +100,60 @@ func main() {
 }
 ```
 
+## Document Builders (safe-by-construction)
+
+Building a `DocumentoElectronico` by hand means filling dozens of fields and
+computing every monetary total yourself. The `docbuilder` package removes that
+burden: pick a constructor for one of the ten document types, add items with
+their natural values, and the builder computes item ITBMS, item totals, and all
+document totals for you, then validates before returning.
+
+```go
+import "github.com/angelnereira/hka-sdk/docbuilder"
+
+doc, err := docbuilder.NewFacturaInterna().
+    Sucursal("0000").
+    Numero(1).
+    Punto(1).
+    Cliente(docbuilder.ClienteContribuyente(
+        "155596713-2-2015", "59", "Mi Cliente S.A.", "Ave. La Paz, Edificio 100",
+    )).
+    AddItem(docbuilder.Item{
+        Descripcion:    "Servicio de consultoria",
+        Cantidad:       1,
+        PrecioUnitario: 100,
+        TasaITBMS:      types.ITBMS7,
+    }).
+    Build()
+if err != nil { /* *ValidationError with every problem found */ }
+
+resp, err := client.Send(ctx, creds, doc)
+```
+
+One constructor per document type, each preselecting the transaction defaults the
+HKA rules require:
+
+| Constructor | Type |
+|---|---|
+| `NewFacturaInterna()` | 01 — domestic invoice |
+| `NewFacturaImportacion()` | 02 — import invoice |
+| `NewFacturaExportacion()` | 03 — export invoice (`.Exportacion(...)`, foreign client) |
+| `NewNotaCreditoReferenciada()` | 04 — credit note (`.Referencia(cufe, fecha)`) |
+| `NewNotaDebitoReferenciada()` | 05 — debit note (`.Referencia(cufe, fecha)`) |
+| `NewNotaCreditoGenerica()` | 06 — generic credit note |
+| `NewNotaDebitoGenerica()` | 07 — generic debit note |
+| `NewFacturaZonaFranca()` | 08 — free-zone invoice |
+| `NewReembolso()` | 09 — reimbursement |
+| `NewFacturaExtranjera()` | 10 — foreign-operation invoice |
+
+Client constructors fill the fields each category requires:
+`ClienteContribuyente`, `ClienteContribuyenteNatural`, `ClienteConsumidorFinal`,
+`ClienteGobierno`, `ClienteExtranjero`.
+
+Payment terms are inferred: with no calls the builder adds a single cash payment
+for the full total (immediate); `AddPagoPlazo(...)` switches to deferred, and
+combining both yields mixed. See [`examples/builder_quickstart`](./examples/builder_quickstart).
+
 ## API Reference
 
 | Method | Description |
@@ -128,6 +182,55 @@ func main() {
 | 08 | `TipoDocFacturaZonaFranca` | Free zone invoice |
 | 09 | `TipoDocReembolso` | Reimbursement |
 | 10 | `TipoDocFacturaExtranjera` | Foreign operation invoice |
+
+## Polyglot usage (REST/JSON gateway)
+
+Go is the source of truth, but any language can drive the SDK through the JSON
+gateway, which hides SOAP and computes every total for you:
+
+```bash
+go run ./cmd/hka-gateway        # listens on :8080 (demo endpoint by default)
+# or: docker build -t hka-gateway . && docker run -p 8080:8080 hka-gateway
+```
+
+```bash
+curl -s localhost:8080/v1/documents/build -d '{
+  "tipo":"01","numero":1,"punto":1,
+  "cliente":{"tipo":"contribuyente","ruc":"155596713-2-2015","dv":"59",
+             "razonSocial":"Mi Cliente S.A.","direccion":"Ave. La Paz"},
+  "items":[{"descripcion":"Servicio","cantidad":1,"precioUnitario":100,"tasaITBMS":"01"}]
+}'   # -> document with TotalFactura "107.00", computed by the gateway
+```
+
+Credentials are passed per request via `X-HKA-Token-Empresa` /
+`X-HKA-Token-Password` headers. Generate typed clients for TypeScript, Python,
+Java, etc. from [`openapi.yaml`](./openapi.yaml). Full contract and per-language
+examples in [`docs/GATEWAY.md`](./docs/GATEWAY.md).
+
+## Catalogs & code formats
+
+The [`catalog`](./catalog) package bundles the reference catalogs and format
+helpers the DGI/HKA scheme depends on, as types inside the SDK:
+
+```go
+import "github.com/angelnereira/hka-sdk/catalog"
+
+catalog.Provincias()                       // 13 provinces/comarcas
+catalog.ParseUbicacion("8-8-7")            // provincia-distrito-corregimiento
+catalog.ParseCedula("8-123-456")           // national ID
+catalog.ParseRUC("155596713-2-2015")       // natural (cédula) or juridical
+catalog.ValidateCUFE(cufe)                 // 66-char FE code shape
+catalog.ValidateCPBS("13", "1310")         // government product codes
+catalog.SugerirTasa("Cerveza nacional")    // -> ITBMS10 (10%)
+```
+
+ITBMS rates are modeled by kind of good/service: 7% general, 10% alcoholic
+beverages and lodging, 15% tobacco, 0% exempt. Validation now also checks
+`codigoUbicacion` shape and CPBS code consistency.
+
+The large geographic and CPBS catalogs ship with authoritative top-level data and
+can be regenerated in full from official sources with `tools/gencatalog`. See
+[`docs/CATALOGS.md`](./docs/CATALOGS.md) for sources and the refresh procedure.
 
 ## Validation
 

@@ -64,12 +64,12 @@ func unescapeXML(s string) string {
 func ParseSendResponse(raw []byte) *types.SendResponse {
 	xml := string(raw)
 	return &types.SendResponse{
-		Code:                    types.ReturnCode(extract(xml, "codigo")),
-		Result:                  extract(xml, "resultado"),
-		Message:                 extract(xml, "mensaje"),
-		CUFE:                    extract(xml, "cufe"),
-		QR:                      extract(xml, "qr"),
-		FechaRecepcionDGI:       extract(xml, "fechaRecepcionDGI"),
+		Code:                     types.ReturnCode(extract(xml, "codigo")),
+		Result:                   extract(xml, "resultado"),
+		Message:                  extract(xml, "mensaje"),
+		CUFE:                     extract(xml, "cufe"),
+		QR:                       extract(xml, "qr"),
+		FechaRecepcionDGI:        extract(xml, "fechaRecepcionDGI"),
 		NroProtocoloAutorizacion: extract(xml, "nroProtocoloAutorizacion"),
 	}
 }

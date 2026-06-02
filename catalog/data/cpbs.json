@@ -1,0 +1,16 @@
+{
+  "_meta": {
+    "description": "Catálogo CPBS (Productos, Bienes y Servicios) para los campos codigoCPBSAbrev y codigoCPBS, obligatorios al facturar a clientes de Gobierno (tipoClienteFE=03).",
+    "formato": "codigoCPBSAbrev = 2 dígitos (categoría/división); codigoCPBS = 4 dígitos cuyo prefijo de 2 dígitos es codigoCPBSAbrev.",
+    "fuente_oficial": "DGI — Anexos Técnicos de Factura Electrónica (catálogo CPBS, basado en la Clasificación Central de Productos CPC).",
+    "nota": "Categorías incluidas como muestra verificada de estructura. Ejecuta tools/gencatalog para poblar el catálogo completo desde la fuente oficial."
+  },
+  "categorias": [
+    { "abrev": "13", "nombre": "Productos manufacturados / textiles y muebles", "productos": [
+      { "codigo": "1310", "nombre": "Muebles" }
+    ] },
+    { "abrev": "72", "nombre": "Servicios inmobiliarios y profesionales", "productos": [
+      { "codigo": "7210", "nombre": "Servicios profesionales" }
+    ] }
+  ]
+}

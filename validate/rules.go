@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/angelnereira/hka-sdk/catalog"
 	"github.com/angelnereira/hka-sdk/types"
 )
 
@@ -264,6 +265,11 @@ func validateCliente(ve *ValidationError, c *types.Cliente) {
 		}
 	}
 
+	// codigoUbicacion, when present, must be a well-formed provincia-distrito-corregimiento.
+	if c.CodigoUbicacion != "" && !catalog.ValidateUbicacion(c.CodigoUbicacion) {
+		ve.add("Cliente.CodigoUbicacion", "must be provincia-distrito-corregimiento (e.g. 8-8-7)")
+	}
+
 	// Rule 27
 	if c.Pais == types.CountryZZ && c.PaisOtro == "" {
 		ve.add("Cliente.PaisOtro", "required when Pais is 'ZZ'")
@@ -317,6 +323,13 @@ func validateItems(ve *ValidationError, items []types.Item, tipoCliente types.Ti
 			}
 			if item.UnidadMedidaCPBS == "" {
 				ve.add(prefix+".UnidadMedidaCPBS", "required for government clients")
+			}
+		}
+
+		// When CPBS codes are supplied, they must be well-formed and consistent.
+		if item.CodigoCPBS != "" || item.CodigoCPBSAbrev != "" {
+			if err := catalog.ValidateCPBS(item.CodigoCPBSAbrev, item.CodigoCPBS); err != nil {
+				ve.add(prefix+".CodigoCPBS", err.Error())
 			}
 		}
 
