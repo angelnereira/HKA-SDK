@@ -120,7 +120,7 @@ const (
 type TipoSucursal string
 
 const (
-	SucursalDetal    TipoSucursal = "1"
+	SucursalDetal     TipoSucursal = "1"
 	SucursalMayorista TipoSucursal = "2"
 )
 
@@ -353,17 +353,17 @@ func IsValidNaturaleza(n NaturalezaOperacion) bool {
 }
 
 // String implements fmt.Stringer for debugging.
-func (t TipoDocumento) String() string    { return string(t) }
-func (t TipoEmision) String() string      { return string(t) }
-func (t TipoClienteFE) String() string    { return string(t) }
+func (t TipoDocumento) String() string     { return string(t) }
+func (t TipoEmision) String() string       { return string(t) }
+func (t TipoClienteFE) String() string     { return string(t) }
 func (t TipoContribuyente) String() string { return string(t) }
-func (t TipoOperacion) String() string    { return string(t) }
-func (t DestinoOperacion) String() string { return string(t) }
-func (t TasaITBMS) String() string        { return string(t) }
-func (t FormaPago) String() string        { return string(t) }
-func (t TiempoPago) String() string       { return string(t) }
-func (t CountryCode) String() string      { return string(t) }
-func (t CurrencyCode) String() string     { return string(t) }
+func (t TipoOperacion) String() string     { return string(t) }
+func (t DestinoOperacion) String() string  { return string(t) }
+func (t TasaITBMS) String() string         { return string(t) }
+func (t FormaPago) String() string         { return string(t) }
+func (t TiempoPago) String() string        { return string(t) }
+func (t CountryCode) String() string       { return string(t) }
+func (t CurrencyCode) String() string      { return string(t) }
 
 // formatNotEmpty is a compile-time guard; used in soap layer.
 var _ = fmt.Sprintf

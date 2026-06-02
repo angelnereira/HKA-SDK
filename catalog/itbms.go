@@ -25,11 +25,11 @@ import (
 type ITBMSCategoria int
 
 const (
-	ITBMSGeneral  ITBMSCategoria = iota // 7%
-	ITBMSAlcohol                        // 10% — bebidas alcohólicas
-	ITBMSHospedaje                      // 10% — hospedaje/alojamiento
-	ITBMSTabaco                         // 15% — derivados del tabaco
-	ITBMSExentoCategoria                // exento
+	ITBMSGeneral         ITBMSCategoria = iota // 7%
+	ITBMSAlcohol                               // 10% — bebidas alcohólicas
+	ITBMSHospedaje                             // 10% — hospedaje/alojamiento
+	ITBMSTabaco                                // 15% — derivados del tabaco
+	ITBMSExentoCategoria                       // exento
 )
 
 // Tasa returns the SDK TasaITBMS code for the category.

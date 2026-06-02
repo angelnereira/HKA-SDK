@@ -4,12 +4,12 @@ import "encoding/base64"
 
 // SendResponse is the typed response from Send().
 type SendResponse struct {
-	Code                    ReturnCode
-	Result                  string
-	Message                 string
-	CUFE                    string
-	QR                      string
-	FechaRecepcionDGI       string
+	Code                     ReturnCode
+	Result                   string
+	Message                  string
+	CUFE                     string
+	QR                       string
+	FechaRecepcionDGI        string
 	NroProtocoloAutorizacion string
 }
 

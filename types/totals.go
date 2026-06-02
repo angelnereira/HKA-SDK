@@ -2,23 +2,23 @@ package types
 
 // TotalesSubTotales aggregates all monetary totals for the document.
 type TotalesSubTotales struct {
-	TotalPrecioNeto      string
-	TotalITBMS           string
-	TotalISC             string
-	TotalMontoGravado    string
-	TotalDescuento       string
-	TotalAcarreoCobrado  string
-	ValorSeguroCobrado   string
-	TotalOtrosGastos     string
-	TotalFactura         string
-	TotalValorRecibido   string
-	Vuelto               string
-	TiempoPago           TiempoPago
-	NroItems             int
-	TotalTodosItems      string
-	ListaFormaPago       []FormaPagoItem
-	ListaPagoPlazo       []CuotaPlazo
-	ListaTotalOTI        []TotalOTI
+	TotalPrecioNeto       string
+	TotalITBMS            string
+	TotalISC              string
+	TotalMontoGravado     string
+	TotalDescuento        string
+	TotalAcarreoCobrado   string
+	ValorSeguroCobrado    string
+	TotalOtrosGastos      string
+	TotalFactura          string
+	TotalValorRecibido    string
+	Vuelto                string
+	TiempoPago            TiempoPago
+	NroItems              int
+	TotalTodosItems       string
+	ListaFormaPago        []FormaPagoItem
+	ListaPagoPlazo        []CuotaPlazo
+	ListaTotalOTI         []TotalOTI
 	DescuentoBonificacion *DescuentoBonificacion
 }
 
@@ -40,12 +40,12 @@ type CuotaPlazo struct {
 
 // TotalOTI aggregates the total for one OTI type across all items.
 type TotalOTI struct {
-	Tasa        TasaOTI
+	Tasa          TasaOTI
 	ValorTotalOTI string
 }
 
 // DescuentoBonificacion holds a document-level discount or bonus.
 type DescuentoBonificacion struct {
-	MontoDescuento string
+	MontoDescuento       string
 	DescripcionDescuento string
 }

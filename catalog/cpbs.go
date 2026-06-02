@@ -24,8 +24,8 @@ var cpbsJSON []byte
 
 // CPBSCategoria is a 2-digit CPBS category and its products.
 type CPBSCategoria struct {
-	Abrev     string        `json:"abrev"`
-	Nombre    string        `json:"nombre"`
+	Abrev     string         `json:"abrev"`
+	Nombre    string         `json:"nombre"`
 	Productos []CPBSProducto `json:"productos"`
 }
 
