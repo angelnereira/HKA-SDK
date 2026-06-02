@@ -22,7 +22,8 @@ El núcleo en Go está sólido y compila/pasa pruebas:
 
 | # | Brecha | Impacto | Estado |
 |---|--------|---------|--------|
-| 1 | No es importable fuera de Go (no políglota) | Bloquea el objetivo principal | **Pendiente** — gateway REST/JSON + OpenAPI |
+| 1 | No es importable fuera de Go (no políglota) | Bloquea el objetivo principal | **Resuelto** — gateway REST/JSON + OpenAPI (`gateway/`, `cmd/hka-gateway`, `openapi.yaml`) |
+| 7 | Catálogos (ubicación, CPBS) y formatos (cédula, RUC, CUFE, CAFE, ITBMS) no incluidos | Cumplimiento y ergonomía | **Resuelto** — paquete `catalog` + `tools/gencatalog` |
 | 2 | Construir un documento es manual y propenso a error (~60 líneas, montos calculados a mano) | Riesgo de incumplimiento | **Resuelto** — paquete `docbuilder` |
 | 3 | Sin motor de auto-cálculo de ITBMS/totales | Descuadres y redondeos | **Resuelto** — `docbuilder.Build()` |
 | 4 | `listaPagoPlazo` emitía `fechaPago`/`valorCuotaPlazo` en lugar de `fechaVenceCuota`/`valorCuota` | Documentos a plazo rechazados | **Resuelto** — corregido en `soap/enviar.go` |

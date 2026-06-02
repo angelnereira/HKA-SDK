@@ -8,6 +8,12 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `gateway` package + `cmd/hka-gateway` — a language-neutral JSON/HTTP service that
+  wraps the builder, validation, catalog and SOAP client. Endpoints for building
+  (dry-run), sending, status, cancel, XML/PDF download, email, folios, RUC query and
+  catalog lookups. Credentials are per-request headers (multi-tenant). `openapi.yaml`
+  documents the contract for client codegen; `Dockerfile` and `docs/GATEWAY.md` cover
+  running it and consuming it from TypeScript/JavaScript/Python.
 - `catalog` package — reference catalogs and code-format helpers as SDK types:
   - Geographic catalog (provincia/distrito/corregimiento) with the 13 provinces
     embedded and `ParseUbicacion`/`ValidateUbicacion`/`Resolve`.

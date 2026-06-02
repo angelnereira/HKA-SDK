@@ -1,0 +1,344 @@
+openapi: 3.1.0
+info:
+  title: HKA SDK Gateway
+  version: 1.0.0
+  description: >
+    Language-neutral JSON/HTTP facade over the HKA (The Factory HKA / DGI Panamá)
+    electronic-invoicing SDK. Hides the SOAP protocol and computes all document
+    totals via the safe-by-construction builder, so any language can emit
+    compliant documents. Credentials are passed per request via headers
+    (stateless multi-tenant).
+
+    Generate typed clients with openapi-generator, e.g.:
+      openapi-generator-cli generate -i openapi.yaml -g typescript-fetch -o ./client-ts
+      openapi-generator-cli generate -i openapi.yaml -g python -o ./client-py
+servers:
+  - url: http://localhost:8080
+components:
+  securitySchemes:
+    tokenEmpresa:
+      type: apiKey
+      in: header
+      name: X-HKA-Token-Empresa
+    tokenPassword:
+      type: apiKey
+      in: header
+      name: X-HKA-Token-Password
+  schemas:
+    Cliente:
+      type: object
+      required: [tipo]
+      properties:
+        tipo:
+          type: string
+          enum: [contribuyente, contribuyenteNatural, consumidorFinal, gobierno, extranjero]
+        ruc: { type: string }
+        dv: { type: string }
+        razonSocial: { type: string }
+        direccion: { type: string }
+        tipoIdentificacion: { type: string, description: "extranjero: 01 pasaporte, 02 tributario, 99 otro" }
+        nroIdentificacion: { type: string }
+        pais: { type: string, description: "ISO 3166-1 alpha-2 (extranjero)" }
+        codigoUbicacion: { type: string, example: "8-8-7" }
+        telefono: { type: string }
+        correo: { type: string }
+    Item:
+      type: object
+      required: [descripcion, cantidad, precioUnitario]
+      properties:
+        descripcion: { type: string }
+        codigo: { type: string }
+        unidadMedida: { type: string }
+        cantidad: { type: number }
+        precioUnitario: { type: number }
+        descuento: { type: number }
+        tasaITBMS:
+          type: string
+          enum: ["00", "01", "02", "03"]
+          description: "00 exento, 01 7%, 02 10%, 03 15% (empty with autoTasaITBMS to infer)"
+        codigoCPBSAbrev: { type: string }
+        codigoCPBS: { type: string }
+        unidadMedidaCPBS: { type: string }
+    DocumentRequest:
+      type: object
+      required: [tipo, cliente, items]
+      properties:
+        tipo: { type: string, enum: ["01","02","03","04","05","06","07","08","09","10"] }
+        sucursal: { type: string, example: "0000" }
+        numero: { type: integer, format: int64 }
+        punto: { type: integer }
+        fechaEmision: { type: string, format: date-time }
+        tipoVenta: { type: string }
+        informacionInteres: { type: string }
+        autoTasaITBMS: { type: boolean }
+        cliente: { $ref: '#/components/schemas/Cliente' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Item' }
+        formasPago:
+          type: array
+          items:
+            type: object
+            properties:
+              forma: { type: string }
+              valor: { type: number }
+        pagosPlazo:
+          type: array
+          items:
+            type: object
+            properties:
+              fechaVence: { type: string, format: date-time }
+              valor: { type: number }
+              descripcion: { type: string }
+        pagoContado: { type: string }
+        exportacion:
+          type: object
+          properties:
+            condicionesEntrega: { type: string }
+            moneda: { type: string }
+            monedaNoDef: { type: string }
+            tipoDeCambio: { type: string }
+            montoMonedaExtranjera: { type: string }
+            puertoEmbarque: { type: string }
+        referencias:
+          type: array
+          items:
+            type: object
+            properties:
+              cufe: { type: string }
+              fechaEmision: { type: string, format: date-time }
+        retencion:
+          type: object
+          properties:
+            codigo: { type: string }
+            fecha: { type: string }
+            monto: { type: string }
+    Key:
+      type: object
+      required: [sucursal, numero, punto, tipoDocumento, tipoEmision]
+      properties:
+        sucursal: { type: string }
+        numero: { type: string }
+        punto: { type: string }
+        tipoDocumento: { type: string }
+        tipoEmision: { type: string }
+    SendResponse:
+      type: object
+      properties:
+        Code: { type: string }
+        Message: { type: string }
+        CUFE: { type: string }
+        QR: { type: string }
+        NroProtocoloAutorizacion: { type: string }
+    ValidationError:
+      type: object
+      properties:
+        error: { type: string }
+        fields:
+          type: array
+          items:
+            type: object
+            properties:
+              field: { type: string }
+              message: { type: string }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      responses:
+        '200': { description: ok }
+  /v1/documents/build:
+    post:
+      summary: Build and validate a document without sending (dry run)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DocumentRequest' }
+      responses:
+        '200': { description: Built document with computed totals }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationError' }
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+  /v1/documents/send:
+    post:
+      summary: Build, validate and submit a document
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DocumentRequest' }
+      responses:
+        '200':
+          description: Authorized
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SendResponse' }
+        '401': { description: Missing credentials }
+        '422':
+          description: Validation failed
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ValidationError' }
+        '502': { description: HKA service or network error }
+  /v1/documents/status:
+    post:
+      summary: Query document status
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key: { $ref: '#/components/schemas/Key' }
+      responses:
+        '200': { description: Status }
+  /v1/documents/cancel:
+    post:
+      summary: Cancel a document (7-day window)
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key: { $ref: '#/components/schemas/Key' }
+                motivo: { type: string }
+      responses:
+        '200': { description: Cancellation result }
+  /v1/documents/xml:
+    post:
+      summary: Download signed XML (Base64)
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key: { $ref: '#/components/schemas/Key' }
+      responses:
+        '200': { description: XML document }
+  /v1/documents/pdf:
+    post:
+      summary: Download CAFE PDF (Base64)
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key: { $ref: '#/components/schemas/Key' }
+                serial: { type: string }
+      responses:
+        '200': { description: PDF document }
+  /v1/documents/email:
+    post:
+      summary: Email the document to a recipient
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                key: { $ref: '#/components/schemas/Key' }
+                email: { type: string }
+      responses:
+        '200': { description: Result }
+  /v1/email/track:
+    post:
+      summary: Track email delivery by CUFE
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cufe: { type: string }
+      responses:
+        '200': { description: Tracking events }
+  /v1/folios:
+    get:
+      summary: Remaining folios for the license
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      responses:
+        '200': { description: Folio counts }
+  /v1/ruc/query:
+    post:
+      summary: Look up a RUC and its check digit
+      security: [{ tokenEmpresa: [], tokenPassword: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tipo: { type: string, enum: ["1","2"] }
+                ruc: { type: string }
+      responses:
+        '200': { description: RUC info }
+  /v1/catalog/provincias:
+    get:
+      summary: List provinces (and comarcas)
+      responses:
+        '200': { description: Provinces }
+  /v1/catalog/ubicacion/{code}:
+    get:
+      summary: Parse and resolve a codigoUbicacion
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string }, example: "8-8-7" }
+      responses:
+        '200': { description: Resolved location }
+        '422': { description: Invalid code }
+  /v1/catalog/cufe/{cufe}:
+    get:
+      summary: Parse the leading fields of a CUFE
+      parameters:
+        - { name: cufe, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: CUFE info }
+        '422': { description: Invalid CUFE }
+  /v1/catalog/cpbs/{codigo}:
+    get:
+      summary: Look up a CPBS code
+      parameters:
+        - { name: codigo, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: CPBS info }
+  /v1/catalog/itbms/suggest:
+    post:
+      summary: Suggest an ITBMS rate from a product description
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                descripcion: { type: string }
+      responses:
+        '200': { description: Suggested rate }

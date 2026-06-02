@@ -183,6 +183,30 @@ combining both yields mixed. See [`examples/builder_quickstart`](./examples/buil
 | 09 | `TipoDocReembolso` | Reimbursement |
 | 10 | `TipoDocFacturaExtranjera` | Foreign operation invoice |
 
+## Polyglot usage (REST/JSON gateway)
+
+Go is the source of truth, but any language can drive the SDK through the JSON
+gateway, which hides SOAP and computes every total for you:
+
+```bash
+go run ./cmd/hka-gateway        # listens on :8080 (demo endpoint by default)
+# or: docker build -t hka-gateway . && docker run -p 8080:8080 hka-gateway
+```
+
+```bash
+curl -s localhost:8080/v1/documents/build -d '{
+  "tipo":"01","numero":1,"punto":1,
+  "cliente":{"tipo":"contribuyente","ruc":"155596713-2-2015","dv":"59",
+             "razonSocial":"Mi Cliente S.A.","direccion":"Ave. La Paz"},
+  "items":[{"descripcion":"Servicio","cantidad":1,"precioUnitario":100,"tasaITBMS":"01"}]
+}'   # -> document with TotalFactura "107.00", computed by the gateway
+```
+
+Credentials are passed per request via `X-HKA-Token-Empresa` /
+`X-HKA-Token-Password` headers. Generate typed clients for TypeScript, Python,
+Java, etc. from [`openapi.yaml`](./openapi.yaml). Full contract and per-language
+examples in [`docs/GATEWAY.md`](./docs/GATEWAY.md).
+
 ## Catalogs & code formats
 
 The [`catalog`](./catalog) package bundles the reference catalogs and format
