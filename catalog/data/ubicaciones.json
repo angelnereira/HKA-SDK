@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "description": "Catálogo de ubicaciones de Panamá (provincia-distrito-corregimiento) usado por el campo codigoUbicacion de la factura electrónica.",
+    "formato_codigo": "provincia-distrito-corregimiento (ej. 8-8-7)",
+    "fuente_oficial": "INEC / Contraloría General — División Político-Administrativa de Panamá",
+    "fuentes_estructuradas": [
+      "https://www.inec.gob.pa/",
+      "https://developer.alanube.co/v1.0-PAN/reference/catalogo-unificado-de-provincias-distritos-y-corregimientos",
+      "https://gist.github.com/Yizack/cbe7cef5572e6b832da0e9bd3454b312"
+    ],
+    "totales_oficiales_2024": { "provincias": 10, "comarcas": 3, "distritos": 82, "corregimientos": 699 },
+    "nota": "Las provincias (incluyendo prefijo de cédula) son completas y autoritativas. Los distritos/corregimientos incluidos son una muestra verificada; ejecuta tools/gencatalog para poblar el catálogo completo desde la fuente oficial."
+  },
+  "provincias": [
+    { "codigo": "1",  "nombre": "Bocas del Toro",          "prefijoCedula": "1",  "distritos": [
+      { "codigo": "1", "nombre": "Bocas del Toro", "corregimientos": [ { "codigo": "1", "nombre": "Bocas del Toro (Cabecera)" } ] }
+    ] },
+    { "codigo": "2",  "nombre": "Coclé",                    "prefijoCedula": "2",  "distritos": [] },
+    { "codigo": "3",  "nombre": "Colón",                    "prefijoCedula": "3",  "distritos": [] },
+    { "codigo": "4",  "nombre": "Chiriquí",                 "prefijoCedula": "4",  "distritos": [
+      { "codigo": "1", "nombre": "Alanje", "corregimientos": [ { "codigo": "1", "nombre": "Alanje (Cabecera)" } ] }
+    ] },
+    { "codigo": "5",  "nombre": "Darién",                   "prefijoCedula": "5",  "distritos": [] },
+    { "codigo": "6",  "nombre": "Herrera",                  "prefijoCedula": "6",  "distritos": [] },
+    { "codigo": "7",  "nombre": "Los Santos",               "prefijoCedula": "7",  "distritos": [] },
+    { "codigo": "8",  "nombre": "Panamá",                   "prefijoCedula": "8",  "distritos": [
+      { "codigo": "8", "nombre": "Panamá", "corregimientos": [
+        { "codigo": "7",  "nombre": "Bella Vista" },
+        { "codigo": "14", "nombre": "Ancón" }
+      ] }
+    ] },
+    { "codigo": "9",  "nombre": "Veraguas",                 "prefijoCedula": "9",  "distritos": [] },
+    { "codigo": "10", "nombre": "Comarca Guna Yala",        "prefijoCedula": "10", "distritos": [] },
+    { "codigo": "11", "nombre": "Comarca Emberá-Wounaan",   "prefijoCedula": "11", "distritos": [] },
+    { "codigo": "12", "nombre": "Comarca Ngäbe-Buglé",      "prefijoCedula": "12", "distritos": [] },
+    { "codigo": "13", "nombre": "Panamá Oeste",             "prefijoCedula": "13", "distritos": [] }
+  ]
+}

@@ -8,6 +8,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
+- `catalog` package — reference catalogs and code-format helpers as SDK types:
+  - Geographic catalog (provincia/distrito/corregimiento) with the 13 provinces
+    embedded and `ParseUbicacion`/`ValidateUbicacion`/`Resolve`.
+  - `ParseCedula`/`ValidateCedula` and `ParseRUC`/`ValidateRUC` (natural vs juridical).
+  - `ValidateCUFE` plus `DescribeCUFE`/`DescribeCAFE`.
+  - ITBMS rate model (7/10/15/exempt) with `SugerirTasa` description classifier.
+  - CPBS structure validation (`ValidateCPBS`, `AbrevForCPBS`, `CPBSByCodigo`).
+- `tools/gencatalog` — regenerates the full geographic catalog from an official
+  normalized CSV export; `docs/CATALOGS.md` documents sources and the procedure.
+- `Builder.AutoTasaITBMS()` — opt-in inference of empty item ITBMS rates from the
+  item description via the catalog classifier.
+
+### Changed
+
+- Validation now checks `codigoUbicacion` shape and CPBS code consistency when
+  those fields are present.
+
 - `docbuilder` package — safe-by-construction builders for the ten document
   types. Each constructor preselects the required transaction defaults; items are
   given natural values and the builder computes item ITBMS, item totals and all

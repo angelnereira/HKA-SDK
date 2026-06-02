@@ -34,6 +34,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/angelnereira/hka-sdk/catalog"
 	"github.com/angelnereira/hka-sdk/types"
 	"github.com/angelnereira/hka-sdk/validate"
 )
@@ -81,6 +82,7 @@ type Builder struct {
 	formasPago []types.FormaPagoItem
 	pagosPlazo []types.CuotaPlazo
 	autoPago   types.FormaPago // when set, a single full-total payment is added at Build
+	autoTasa   bool            // when true, empty item ITBMS rates are inferred from the description
 	errs       []string
 }
 
@@ -160,6 +162,15 @@ func (b *Builder) InformacionInteres(s string) *Builder {
 // through the underlying document if needed.
 func (b *Builder) Document() *types.DocumentoElectronico { return b.doc }
 
+// AutoTasaITBMS enables inferring the ITBMS rate from each item's description when
+// the item leaves TasaITBMS empty. The inference is a best-effort suggestion
+// (alcohol/lodging -> 10%, tobacco -> 15%, otherwise 7%); the emisor remains
+// responsible for the correct legal rate. Items that set TasaITBMS keep their value.
+func (b *Builder) AutoTasaITBMS() *Builder {
+	b.autoTasa = true
+	return b
+}
+
 // AddItem appends a line item. Monetary fields are computed at Build time.
 func (b *Builder) AddItem(item Item) *Builder {
 	b.items = append(b.items, item)
@@ -216,6 +227,9 @@ func (b *Builder) Build() (*types.DocumentoElectronico, error) {
 	for i, in := range b.items {
 		if in.Cantidad <= 0 {
 			return nil, fmt.Errorf("docbuilder: item[%d] Cantidad must be greater than 0", i)
+		}
+		if in.TasaITBMS == "" && b.autoTasa {
+			in.TasaITBMS = catalog.SugerirTasa(in.Descripcion)
 		}
 		precioItem := round(in.Cantidad*(in.PrecioUnitario-in.Descuento), itemDecimals)
 		valorITBMS := round(precioItem*in.TasaITBMS.Rate(), itemDecimals)

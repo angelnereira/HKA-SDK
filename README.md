@@ -183,6 +183,31 @@ combining both yields mixed. See [`examples/builder_quickstart`](./examples/buil
 | 09 | `TipoDocReembolso` | Reimbursement |
 | 10 | `TipoDocFacturaExtranjera` | Foreign operation invoice |
 
+## Catalogs & code formats
+
+The [`catalog`](./catalog) package bundles the reference catalogs and format
+helpers the DGI/HKA scheme depends on, as types inside the SDK:
+
+```go
+import "github.com/angelnereira/hka-sdk/catalog"
+
+catalog.Provincias()                       // 13 provinces/comarcas
+catalog.ParseUbicacion("8-8-7")            // provincia-distrito-corregimiento
+catalog.ParseCedula("8-123-456")           // national ID
+catalog.ParseRUC("155596713-2-2015")       // natural (cédula) or juridical
+catalog.ValidateCUFE(cufe)                 // 66-char FE code shape
+catalog.ValidateCPBS("13", "1310")         // government product codes
+catalog.SugerirTasa("Cerveza nacional")    // -> ITBMS10 (10%)
+```
+
+ITBMS rates are modeled by kind of good/service: 7% general, 10% alcoholic
+beverages and lodging, 15% tobacco, 0% exempt. Validation now also checks
+`codigoUbicacion` shape and CPBS code consistency.
+
+The large geographic and CPBS catalogs ship with authoritative top-level data and
+can be regenerated in full from official sources with `tools/gencatalog`. See
+[`docs/CATALOGS.md`](./docs/CATALOGS.md) for sources and the refresh procedure.
+
 ## Validation
 
 Pre-flight validation runs before any HTTP call. If the document is invalid, `Send()` returns a `*hka.ValidationError` without making any network request. The error lists every problem found so all fields can be corrected at once:

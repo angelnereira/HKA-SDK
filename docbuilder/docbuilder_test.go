@@ -99,7 +99,7 @@ func TestAllConstructors_Validate(t *testing.T) {
 	item := docbuilder.Item{Descripcion: "Servicio", Cantidad: 1, PrecioUnitario: 100, TasaITBMS: types.ITBMS7}
 	gobItem := docbuilder.Item{
 		Descripcion: "Servicio", Cantidad: 1, PrecioUnitario: 100, TasaITBMS: types.ITBMS7,
-		CodigoCPBSAbrev: "10", CodigoCPBS: "1310", UnidadMedidaCPBS: "cm",
+		CodigoCPBSAbrev: "13", CodigoCPBS: "1310", UnidadMedidaCPBS: "cm",
 	}
 	contrib := docbuilder.ClienteContribuyente("155596713-2-2015", "59", "Cliente S.A.", "Ave. La Paz")
 	extranjero := docbuilder.ClienteExtranjero("Foreign Corp", "123 Main St", types.IdTributario, "TAX-99", types.CountryUS)
