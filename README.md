@@ -100,6 +100,60 @@ func main() {
 }
 ```
 
+## Document Builders (safe-by-construction)
+
+Building a `DocumentoElectronico` by hand means filling dozens of fields and
+computing every monetary total yourself. The `docbuilder` package removes that
+burden: pick a constructor for one of the ten document types, add items with
+their natural values, and the builder computes item ITBMS, item totals, and all
+document totals for you, then validates before returning.
+
+```go
+import "github.com/angelnereira/hka-sdk/docbuilder"
+
+doc, err := docbuilder.NewFacturaInterna().
+    Sucursal("0000").
+    Numero(1).
+    Punto(1).
+    Cliente(docbuilder.ClienteContribuyente(
+        "155596713-2-2015", "59", "Mi Cliente S.A.", "Ave. La Paz, Edificio 100",
+    )).
+    AddItem(docbuilder.Item{
+        Descripcion:    "Servicio de consultoria",
+        Cantidad:       1,
+        PrecioUnitario: 100,
+        TasaITBMS:      types.ITBMS7,
+    }).
+    Build()
+if err != nil { /* *ValidationError with every problem found */ }
+
+resp, err := client.Send(ctx, creds, doc)
+```
+
+One constructor per document type, each preselecting the transaction defaults the
+HKA rules require:
+
+| Constructor | Type |
+|---|---|
+| `NewFacturaInterna()` | 01 — domestic invoice |
+| `NewFacturaImportacion()` | 02 — import invoice |
+| `NewFacturaExportacion()` | 03 — export invoice (`.Exportacion(...)`, foreign client) |
+| `NewNotaCreditoReferenciada()` | 04 — credit note (`.Referencia(cufe, fecha)`) |
+| `NewNotaDebitoReferenciada()` | 05 — debit note (`.Referencia(cufe, fecha)`) |
+| `NewNotaCreditoGenerica()` | 06 — generic credit note |
+| `NewNotaDebitoGenerica()` | 07 — generic debit note |
+| `NewFacturaZonaFranca()` | 08 — free-zone invoice |
+| `NewReembolso()` | 09 — reimbursement |
+| `NewFacturaExtranjera()` | 10 — foreign-operation invoice |
+
+Client constructors fill the fields each category requires:
+`ClienteContribuyente`, `ClienteContribuyenteNatural`, `ClienteConsumidorFinal`,
+`ClienteGobierno`, `ClienteExtranjero`.
+
+Payment terms are inferred: with no calls the builder adds a single cash payment
+for the full total (immediate); `AddPagoPlazo(...)` switches to deferred, and
+combining both yields mixed. See [`examples/builder_quickstart`](./examples/builder_quickstart).
+
 ## API Reference
 
 | Method | Description |

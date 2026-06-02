@@ -282,9 +282,8 @@ func buildTotales(sb *strings.Builder, t *types.TotalesSubTotales) {
 		internal.Open(sb, nsSer, "listaPagoPlazo")
 		for _, pp := range t.ListaPagoPlazo {
 			internal.Open(sb, nsSer, "pagoPlazo")
-			internal.Tag(sb, nsSer, "fechaPago", pp.FechaPago)
-			internal.Tag(sb, nsSer, "valorCuotaPlazo", pp.ValorCuotaPlazo)
-			internal.Tag(sb, nsSer, "descripcionCuota", pp.DescripcionCuota)
+			internal.Tag(sb, nsSer, "fechaVenceCuota", pp.FechaPago)
+			internal.Tag(sb, nsSer, "valorCuota", pp.ValorCuotaPlazo)
 			internal.Close(sb, nsSer, "pagoPlazo")
 		}
 		internal.Close(sb, nsSer, "listaPagoPlazo")

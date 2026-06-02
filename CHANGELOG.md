@@ -6,6 +6,24 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `docbuilder` package — safe-by-construction builders for the ten document
+  types. Each constructor preselects the required transaction defaults; items are
+  given natural values and the builder computes item ITBMS, item totals and all
+  document totals, then validates before returning a ready-to-send document.
+- Client constructors: `ClienteContribuyente`, `ClienteContribuyenteNatural`,
+  `ClienteConsumidorFinal`, `ClienteGobierno`, `ClienteExtranjero`.
+- `examples/builder_quickstart` demonstrating the builder end-to-end.
+- `docs/ANALYSIS.md` — project gap analysis and roadmap (REST/JSON gateway +
+  OpenAPI for polyglot consumption).
+
+### Fixed
+
+- `listaPagoPlazo` now emits the schema-correct element names `fechaVenceCuota`
+  and `valorCuota` (previously `fechaPago`/`valorCuotaPlazo`/`descripcionCuota`),
+  which caused deferred-payment documents to be malformed.
+
 ## [1.0.0] - In Progress
 
 ### Added

@@ -30,10 +30,12 @@ type FormaPagoItem struct {
 }
 
 // CuotaPlazo represents one installment in a deferred payment schedule.
+// It maps to the <pagoPlazo> element: FechaPago -> fechaVenceCuota and
+// ValorCuotaPlazo -> valorCuota.
 type CuotaPlazo struct {
-	FechaPago        string // YYYY-MM-DD
-	ValorCuotaPlazo  string
-	DescripcionCuota string
+	FechaPago        string // fechaVenceCuota, YYYY-MM-DDThh:mm:ss-05:00
+	ValorCuotaPlazo  string // valorCuota
+	DescripcionCuota string // not part of the HKA schema; retained for caller notes
 }
 
 // TotalOTI aggregates the total for one OTI type across all items.
