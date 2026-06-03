@@ -338,4 +338,4 @@ Detailed HKA wiki documentation is available in [`hka-docs/`](./hka-docs/):
 
 ## License
 
-To be defined.
+MIT — see [LICENSE](./LICENSE).
