@@ -22,6 +22,9 @@ JavaScript, Python, Java o cualquier lenguaje.
 - 🔍 **Validación pre-flight** (~48 reglas) que reporta todos los problemas a la vez.
 - 🧵 **Multi-tenant** y seguro para concurrencia; sin dependencias externas (solo stdlib).
 
+> 📖 **¿Primera vez?** La [**Guía de uso paso a paso**](./docs/GUIA_USO.md) explica
+> todo el flujo en detalle (Go y otros lenguajes), con casos especiales y FAQ.
+
 ## Mapa de paquetes
 
 | Paquete | Propósito |
@@ -291,6 +294,7 @@ HKA_TOKEN_EMPRESA=xxx HKA_TOKEN_PASSWORD=yyy go test -tags=integration ./... -v
 
 ## Documentación
 
+- [`docs/GUIA_USO.md`](./docs/GUIA_USO.md) — **guía de uso detallada paso a paso** (empieza aquí).
 - [`docs/ANALYSIS.md`](./docs/ANALYSIS.md) — análisis del proyecto y hoja de ruta.
 - [`docs/GATEWAY.md`](./docs/GATEWAY.md) — gateway REST/JSON y consumo por lenguaje.
 - [`docs/CATALOGS.md`](./docs/CATALOGS.md) — catálogos, formatos y fuentes oficiales.
