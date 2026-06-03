@@ -1,95 +1,96 @@
 # hka-sdk
 
-Go SDK for The Factory HKA electronic invoicing API (Panama — DGI).
+SDK para la API de facturación electrónica de **The Factory HKA** (Panamá — DGI).
 
-Abstracts the SOAP protocol, provides strongly typed domain types, runs pre-flight validation before every HTTP call, and returns typed errors. Stateless with respect to credentials — one client handles multiple tenants concurrently.
+Abstrae el protocolo SOAP, ofrece tipos de dominio fuertemente tipados, **construye
+los 10 tipos de documento de forma segura** (calculando ITBMS y todos los totales),
+valida antes de cada llamada HTTP y devuelve errores tipados. Es **stateless**
+respecto a las credenciales — un cliente atiende varios contribuyentes en paralelo —
+y, mediante el gateway REST/JSON, es **políglota**: se consume desde TypeScript,
+JavaScript, Python, Java o cualquier lenguaje.
 
-## Requirements
+## Características
 
-- Go 1.23 or later
-- No external dependencies (stdlib only)
+- ✅ **Los 10 tipos de documento fiscal** (factura interna, importación, exportación,
+  notas de crédito/débito referenciadas y genéricas, zona franca, reembolso, extranjera).
+- 🛡️ **Builder seguro por construcción**: rellena los campos obligatorios por tipo y
+  calcula `valorITBMS`, `precioItem`, `valorTotal` y todos los totales — es muy difícil
+  emitir un documento que incumpla.
+- 🌍 **Gateway REST/JSON + OpenAPI** para integración en cualquier lenguaje.
+- 📚 **Catálogos y formatos** como tipos del SDK: ubicación (provincia/distrito/
+  corregimiento), cédula, RUC, CUFE/CAFE, ITBMS y CPBS.
+- 🔍 **Validación pre-flight** (~48 reglas) que reporta todos los problemas a la vez.
+- 🧵 **Multi-tenant** y seguro para concurrencia; sin dependencias externas (solo stdlib).
 
-## Installation
+## Mapa de paquetes
+
+| Paquete | Propósito |
+|---|---|
+| `hka` (raíz) | Cliente, operaciones (`Send`, `Cancel`, descargas, …), errores tipados, helpers |
+| `docbuilder` | Construcción segura de los 10 documentos con auto-cálculo de montos |
+| `catalog` | Catálogos (ubicación, CPBS) y formatos (cédula, RUC, CUFE, CAFE, ITBMS) |
+| `types` | Tipos de dominio, constantes y enumeraciones |
+| `validate` | Validación pre-flight independiente |
+| `gateway` + `cmd/hka-gateway` | Servicio REST/JSON políglota (oculta el SOAP) |
+| `tools/gencatalog` | Regenera el catálogo geográfico desde una fuente oficial |
+
+## Requisitos e instalación
+
+- Go 1.23 o superior — sin dependencias externas.
 
 ```
 go get github.com/angelnereira/hka-sdk
 ```
 
-## Quick Start
+## Inicio rápido (recomendado)
+
+Usa el `docbuilder`: tú aportas los datos naturales y el SDK calcula los montos,
+fija los campos obligatorios del tipo y valida antes de devolver el documento.
 
 ```go
 package main
 
 import (
     "context"
+    "errors"
     "fmt"
     "log"
     "os"
-    "time"
 
     hka "github.com/angelnereira/hka-sdk"
+    "github.com/angelnereira/hka-sdk/docbuilder"
     "github.com/angelnereira/hka-sdk/types"
 )
 
 func main() {
     client := hka.NewDemo()
-
     creds := hka.Credentials{
         TokenEmpresa:  os.Getenv("HKA_TOKEN_EMPRESA"),
         TokenPassword: os.Getenv("HKA_TOKEN_PASSWORD"),
     }
 
-    doc := &types.DocumentoElectronico{
-        CodigoSucursalEmisor: "0000",
-        DatosTransaccion: types.DatosTransaccion{
-            TipoEmision:            types.EmisionAUPNormal,
-            TipoDocumento:          types.TipoDocFacturaInterna,
-            NumeroDocumentoFiscal:  hka.PadDocNumber(1),
-            PuntoFacturacionFiscal: hka.PadPunto(1),
-            FechaEmision:           hka.FormatDateTime(time.Now()),
-            NaturalezaOperacion:    types.NatVenta,
-            TipoOperacion:          types.OperacionSalida,
-            DestinoOperacion:       types.DestinoPanama,
-            FormatoCAFE:            types.CAFEPapelCarta,
-            EntregaCAFE:            types.EntregaElectronica,
-            EnvioContenedor:        types.ContenedorNormal,
-            ProcesoGeneracion:      "1",
-            TipoVenta:              types.VentaServicio,
-            Cliente: types.Cliente{
-                TipoClienteFE:        types.ClienteContribuyente,
-                TipoContribuyente:    types.ContribuyenteJuridico,
-                NumeroRUC:            "155596713-2-2015",
-                DigitoVerificadorRUC: "59",
-                RazonSocial:          "Mi Cliente S.A.",
-                Direccion:            "Ave. La Paz, Edificio 100",
-                Pais:                 types.CountryPA,
-            },
-        },
-        ListaItems: []types.Item{
-            {
-                Descripcion:             "Servicio de consultoria",
-                Cantidad:                "1.000000",
-                PrecioUnitario:          "100.000000",
-                PrecioUnitarioDescuento: "0.000000",
-                PrecioItem:              "100.000000",
-                ValorTotal:              "107.000000",
-                TasaITBMS:               types.ITBMS7,
-                ValorITBMS:              "7.000000",
-            },
-        },
-        TotalesSubTotales: types.TotalesSubTotales{
-            TotalPrecioNeto:    "100.00",
-            TotalITBMS:         "7.00",
-            TotalMontoGravado:  "7.00",
-            TotalFactura:       "107.00",
-            TotalValorRecibido: "107.00",
-            TiempoPago:         types.PagoInmediato,
-            NroItems:           1,
-            TotalTodosItems:    "107.00",
-            ListaFormaPago: []types.FormaPagoItem{
-                {FormaPagoFact: types.PagoEfectivo, ValorCuotaPagada: "107.00"},
-            },
-        },
+    doc, err := docbuilder.NewFacturaInterna().
+        Sucursal("0000").
+        Numero(1).
+        Punto(1).
+        Cliente(docbuilder.ClienteContribuyente(
+            "155596713-2-2015", "59", "Mi Cliente S.A.", "Ave. La Paz, Edificio 100",
+        )).
+        AddItem(docbuilder.Item{
+            Descripcion:    "Servicio de consultoría",
+            Cantidad:       1,
+            PrecioUnitario: 100,
+            TasaITBMS:      types.ITBMS7,
+        }).
+        Build()
+    if err != nil {
+        var ve *hka.ValidationError
+        if errors.As(err, &ve) {
+            for _, fe := range ve.Fields {
+                fmt.Printf("validación: %s — %s\n", fe.Field, fe.Message)
+            }
+        }
+        log.Fatal(err)
     }
 
     resp, err := client.Send(context.Background(), creds, doc)
@@ -100,97 +101,55 @@ func main() {
 }
 ```
 
-## Document Builders (safe-by-construction)
+Las condiciones de pago se infieren: sin llamadas adicionales se agrega un pago de
+contado por el total; `AddPagoPlazo(...)` cambia a plazo y combinarlo con
+`AddFormaPago(...)` resulta en mixto. Ejemplo completo en
+[`examples/builder_quickstart`](./examples/builder_quickstart).
 
-Building a `DocumentoElectronico` by hand means filling dozens of fields and
-computing every monetary total yourself. The `docbuilder` package removes that
-burden: pick a constructor for one of the ten document types, add items with
-their natural values, and the builder computes item ITBMS, item totals, and all
-document totals for you, then validates before returning.
+## Los 10 tipos de documento
 
-```go
-import "github.com/angelnereira/hka-sdk/docbuilder"
+| Código | Constructor (`docbuilder`) | Constante (`types`) | Notas / requisitos |
+|---|---|---|---|
+| 01 | `NewFacturaInterna()` | `TipoDocFacturaInterna` | Factura de operación interna |
+| 02 | `NewFacturaImportacion()` | `TipoDocFacturaImportacion` | Factura de importación |
+| 03 | `NewFacturaExportacion()` | `TipoDocFacturaExportacion` | `.Exportacion(...)` + cliente extranjero; destino exterior |
+| 04 | `NewNotaCreditoReferenciada()` | `TipoDocNotaCreditoRef` | `.Referencia(cufe, fecha)`; ventana de 180 días |
+| 05 | `NewNotaDebitoReferenciada()` | `TipoDocNotaDebitoRef` | Igual que 04 |
+| 06 | `NewNotaCreditoGenerica()` | `TipoDocNotaCreditoGen` | Sin documento referenciado |
+| 07 | `NewNotaDebitoGenerica()` | `TipoDocNotaDebitoGen` | Igual que 06 |
+| 08 | `NewFacturaZonaFranca()` | `TipoDocFacturaZonaFranca` | Factura de zona franca |
+| 09 | `NewReembolso()` | `TipoDocReembolso` | Reembolso |
+| 10 | `NewFacturaExtranjera()` | `TipoDocFacturaExtranjera` | Operación extranjera |
 
-doc, err := docbuilder.NewFacturaInterna().
-    Sucursal("0000").
-    Numero(1).
-    Punto(1).
-    Cliente(docbuilder.ClienteContribuyente(
-        "155596713-2-2015", "59", "Mi Cliente S.A.", "Ave. La Paz, Edificio 100",
-    )).
-    AddItem(docbuilder.Item{
-        Descripcion:    "Servicio de consultoria",
-        Cantidad:       1,
-        PrecioUnitario: 100,
-        TasaITBMS:      types.ITBMS7,
-    }).
-    Build()
-if err != nil { /* *ValidationError with every problem found */ }
-
-resp, err := client.Send(ctx, creds, doc)
-```
-
-One constructor per document type, each preselecting the transaction defaults the
-HKA rules require:
-
-| Constructor | Type |
-|---|---|
-| `NewFacturaInterna()` | 01 — domestic invoice |
-| `NewFacturaImportacion()` | 02 — import invoice |
-| `NewFacturaExportacion()` | 03 — export invoice (`.Exportacion(...)`, foreign client) |
-| `NewNotaCreditoReferenciada()` | 04 — credit note (`.Referencia(cufe, fecha)`) |
-| `NewNotaDebitoReferenciada()` | 05 — debit note (`.Referencia(cufe, fecha)`) |
-| `NewNotaCreditoGenerica()` | 06 — generic credit note |
-| `NewNotaDebitoGenerica()` | 07 — generic debit note |
-| `NewFacturaZonaFranca()` | 08 — free-zone invoice |
-| `NewReembolso()` | 09 — reimbursement |
-| `NewFacturaExtranjera()` | 10 — foreign-operation invoice |
-
-Client constructors fill the fields each category requires:
+Constructores de cliente que rellenan lo que cada categoría exige:
 `ClienteContribuyente`, `ClienteContribuyenteNatural`, `ClienteConsumidorFinal`,
 `ClienteGobierno`, `ClienteExtranjero`.
 
-Payment terms are inferred: with no calls the builder adds a single cash payment
-for the full total (immediate); `AddPagoPlazo(...)` switches to deferred, and
-combining both yields mixed. See [`examples/builder_quickstart`](./examples/builder_quickstart).
+## Operaciones
 
-## API Reference
-
-| Method | Description |
+| Método | Descripción |
 |---|---|
-| `Send(ctx, creds, doc)` | Submit a fiscal document |
-| `DocumentStatus(ctx, creds, key)` | Query document status |
-| `Cancel(ctx, creds, key, reason)` | Cancel a document (7-day window) |
-| `DownloadXML(ctx, creds, key)` | Download signed XML (Base64) |
-| `DownloadPDF(ctx, creds, key, serial)` | Download PDF (Base64) |
-| `SendEmail(ctx, creds, key, email)` | Email the document to a recipient |
-| `TrackEmail(ctx, creds, cufe)` | Track email delivery by CUFE |
-| `RemainingFolios(ctx, creds)` | Query available folio count |
-| `QueryRUC(ctx, creds, type, ruc)` | Look up a RUC and its check digit |
+| `Send(ctx, creds, doc)` | Envía un documento fiscal |
+| `DocumentStatus(ctx, creds, key)` | Consulta el estado de un documento |
+| `Cancel(ctx, creds, key, reason)` | Anula un documento (ventana de 7 días) |
+| `DownloadXML(ctx, creds, key)` | Descarga el XML firmado (Base64) |
+| `DownloadPDF(ctx, creds, key, serial)` | Descarga el CAFE PDF (Base64) |
+| `SendEmail(ctx, creds, key, email)` | Envía el documento por correo |
+| `TrackEmail(ctx, creds, cufe)` | Rastrea la entrega por CUFE |
+| `RemainingFolios(ctx, creds)` | Consulta los folios disponibles |
+| `QueryRUC(ctx, creds, tipo, ruc)` | Consulta un RUC y su dígito verificador |
 
-## Document Types
+El resultado de `DownloadXML`/`DownloadPDF` trae el contenido en Base64;
+`resp.Bytes()` lo decodifica a bytes listos para escribir a disco.
 
-| Code | Constant | Key Constraints |
-|---|---|---|
-| 01 | `TipoDocFacturaInterna` | Standard domestic invoice |
-| 02 | `TipoDocFacturaImportacion` | Import invoice |
-| 03 | `TipoDocFacturaExportacion` | Requires `DestinoOperacion=2`, `TipoClienteFE=04`, `DatosFacturaExportacion` |
-| 04 | `TipoDocNotaCreditoRef` | Requires `ListaDocsFiscalReferenciados` with CUFE, 180-day window |
-| 05 | `TipoDocNotaDebitoRef` | Same as 04 |
-| 06 | `TipoDocNotaCreditoGen` | `ListaDocsFiscalReferenciados` must be absent |
-| 07 | `TipoDocNotaDebitoGen` | Same as 06 |
-| 08 | `TipoDocFacturaZonaFranca` | Free zone invoice |
-| 09 | `TipoDocReembolso` | Reimbursement |
-| 10 | `TipoDocFacturaExtranjera` | Foreign operation invoice |
+## Uso políglota (gateway REST/JSON)
 
-## Polyglot usage (REST/JSON gateway)
-
-Go is the source of truth, but any language can drive the SDK through the JSON
-gateway, which hides SOAP and computes every total for you:
+Go es la fuente de verdad, pero cualquier lenguaje puede usar el SDK a través del
+gateway JSON, que oculta el SOAP y calcula todos los totales:
 
 ```bash
-go run ./cmd/hka-gateway        # listens on :8080 (demo endpoint by default)
-# or: docker build -t hka-gateway . && docker run -p 8080:8080 hka-gateway
+go run ./cmd/hka-gateway        # escucha en :8080 (endpoint demo por defecto)
+# o: docker build -t hka-gateway . && docker run -p 8080:8080 hka-gateway
 ```
 
 ```bash
@@ -199,100 +158,100 @@ curl -s localhost:8080/v1/documents/build -d '{
   "cliente":{"tipo":"contribuyente","ruc":"155596713-2-2015","dv":"59",
              "razonSocial":"Mi Cliente S.A.","direccion":"Ave. La Paz"},
   "items":[{"descripcion":"Servicio","cantidad":1,"precioUnitario":100,"tasaITBMS":"01"}]
-}'   # -> document with TotalFactura "107.00", computed by the gateway
+}'   # -> documento con TotalFactura "107.00", calculado por el gateway
 ```
 
-Credentials are passed per request via `X-HKA-Token-Empresa` /
-`X-HKA-Token-Password` headers. Generate typed clients for TypeScript, Python,
-Java, etc. from [`openapi.yaml`](./openapi.yaml). Full contract and per-language
-examples in [`docs/GATEWAY.md`](./docs/GATEWAY.md).
+Las credenciales se pasan por petición con los headers `X-HKA-Token-Empresa` /
+`X-HKA-Token-Password`. Desde [`openapi.yaml`](./openapi.yaml) se autogeneran
+clientes tipados (TypeScript, Python, Java, …). Contrato completo y ejemplos por
+lenguaje en [`docs/GATEWAY.md`](./docs/GATEWAY.md).
 
-## Catalogs & code formats
+## Catálogos y formatos
 
-The [`catalog`](./catalog) package bundles the reference catalogs and format
-helpers the DGI/HKA scheme depends on, as types inside the SDK:
+El paquete [`catalog`](./catalog) incluye, como tipos del SDK, los catálogos de
+referencia y los ayudantes de formato del esquema DGI/HKA:
 
 ```go
 import "github.com/angelnereira/hka-sdk/catalog"
 
-catalog.Provincias()                       // 13 provinces/comarcas
-catalog.ParseUbicacion("8-8-7")            // provincia-distrito-corregimiento
-catalog.ParseCedula("8-123-456")           // national ID
-catalog.ParseRUC("155596713-2-2015")       // natural (cédula) or juridical
-catalog.ValidateCUFE(cufe)                 // 66-char FE code shape
-catalog.ValidateCPBS("13", "1310")         // government product codes
-catalog.SugerirTasa("Cerveza nacional")    // -> ITBMS10 (10%)
+catalog.Provincias()                    // 13 provincias/comarcas
+catalog.ParseUbicacion("8-8-7")         // provincia-distrito-corregimiento
+catalog.ParseCedula("8-123-456")        // cédula
+catalog.ParseRUC("155596713-2-2015")    // natural (cédula) o jurídico
+catalog.ParseCUFE(cufe)                 // decodifica tipo de documento y ambiente
+catalog.ValidateCPBS("13", "1310")      // códigos de producto para Gobierno
+catalog.SugerirTasa("Cerveza nacional") // -> ITBMS10 (10%)
 ```
 
-ITBMS rates are modeled by kind of good/service: 7% general, 10% alcoholic
-beverages and lodging, 15% tobacco, 0% exempt. Validation now also checks
-`codigoUbicacion` shape and CPBS code consistency.
+El ITBMS se modela por tipo de bien/servicio: **7%** general, **10%** bebidas
+alcohólicas y hospedaje, **15%** tabaco, **0%** exento. La validación también
+verifica el formato de `codigoUbicacion` y la consistencia de los códigos CPBS.
 
-The large geographic and CPBS catalogs ship with authoritative top-level data and
-can be regenerated in full from official sources with `tools/gencatalog`. See
-[`docs/CATALOGS.md`](./docs/CATALOGS.md) for sources and the refresh procedure.
+Los catálogos grandes (geográfico y CPBS) incluyen datos de nivel superior
+autoritativos y se regeneran completos con `tools/gencatalog`. Fuentes y
+procedimiento en [`docs/CATALOGS.md`](./docs/CATALOGS.md).
 
-## Validation
+## Validación
 
-Pre-flight validation runs before any HTTP call. If the document is invalid, `Send()` returns a `*hka.ValidationError` without making any network request. The error lists every problem found so all fields can be corrected at once:
+La validación pre-flight corre antes de cualquier llamada HTTP. Si el documento es
+inválido, `Send()` devuelve un `*hka.ValidationError` sin hacer red, listando todos
+los problemas para corregirlos de una vez:
 
 ```go
 resp, err := client.Send(ctx, creds, doc)
 if err != nil {
-    var valErr *hka.ValidationError
-    if errors.As(err, &valErr) {
-        for _, fe := range valErr.Fields {
+    var ve *hka.ValidationError
+    if errors.As(err, &ve) {
+        for _, fe := range ve.Fields {
             fmt.Printf("%s: %s\n", fe.Field, fe.Message)
         }
     }
 }
 ```
 
-The standalone validators in the `validate` package can also be used independently:
+Los validadores del paquete `validate` también se usan de forma independiente:
 
 ```go
-if err := validate.Document(doc); err != nil { ... }
-if err := validate.Client(&cliente); err != nil { ... }
-if err := validate.Items(items, tipoCliente); err != nil { ... }
+if err := validate.Document(doc); err != nil { /* ... */ }
 ```
 
-## Error Handling
+## Manejo de errores
 
 ```go
 resp, err := client.Send(ctx, creds, doc)
 if err != nil {
     switch e := err.(type) {
     case *hka.ValidationError:
-        // pre-flight failure — no HTTP call was made
+        // fallo pre-flight — no se hizo ninguna llamada HTTP
         for _, fe := range e.Fields {
             fmt.Println(fe.Field, fe.Message)
         }
     case *hka.HKAError:
-        // service returned an error code
+        // el servicio devolvió un código de error
         fmt.Println(e.Code, e.Message)
     case *hka.NetworkError:
-        // connection or HTTP failure
+        // fallo de conexión o HTTP
         fmt.Println(e.Cause)
     }
 }
 ```
 
-## Environments
+## Ambientes
 
 ```go
-// Demo / integration
+// Demo / integración
 client := hka.NewDemo()
 
-// Production (endpoint provided by HKA)
+// Producción (endpoint provisto por HKA)
 client := hka.New(&hka.Config{
     Endpoint: "https://emision.thefactoryhka.com.pa/ws/obj/v1.0/Service.svc",
     Timeout:  60 * time.Second,
 })
 ```
 
-## Multi-tenant Usage
+## Uso multi-tenant
 
-One `Client` can be shared across goroutines. Pass different `Credentials` per call:
+Un mismo `Client` se comparte entre goroutines; pasa `Credentials` distintas por llamada:
 
 ```go
 client := hka.NewDemo()
@@ -301,7 +260,12 @@ go func() { client.Send(ctx, credsEmpresaA, docA) }()
 go func() { client.Send(ctx, credsEmpresaB, docB) }()
 ```
 
-## Helpers
+## Construcción manual (avanzado)
+
+Cuando necesites control total, puedes construir el `types.DocumentoElectronico` a
+mano y enviarlo con `client.Send`. En ese caso eres responsable de calcular los
+montos (`valorITBMS`, `precioItem`, totales); la validación los verifica pero no los
+calcula. Para casi todos los casos, prefiere el `docbuilder`. Helpers útiles:
 
 ```go
 hka.FormatDateTime(t)           // time.Time → "2006-01-02T15:04:05-05:00"
@@ -310,32 +274,29 @@ hka.PadDocNumber(1)             // → "0000000001"
 hka.PadPunto(1)                 // → "001"
 hka.PadSucursal("1")            // → "0001"
 hka.FormatAmount(107.0, 2)      // → "107.00"
-hka.CalculateITBMS(100, tasa)   // → net ITBMS amount
-hka.IsWithin180Days(refDate)    // check reference note eligibility
-hka.IsWithin7Days(emitDate)     // check cancellation eligibility
-hka.ValidateCUFE(cufe)          // check CUFE length (66 chars)
+hka.CalculateITBMS(100, tasa)   // → monto ITBMS
+hka.IsWithin180Days(refDate)    // elegibilidad de nota referenciada
+hka.IsWithin7Days(emitDate)     // elegibilidad de anulación
 ```
 
-## Testing
+## Pruebas
 
 ```bash
-# Unit tests (no credentials required)
+# Pruebas unitarias (sin credenciales)
 go test ./...
 
-# Integration tests against demo environment
+# Pruebas de integración contra el ambiente demo
 HKA_TOKEN_EMPRESA=xxx HKA_TOKEN_PASSWORD=yyy go test -tags=integration ./... -v
 ```
 
-## Documentation
+## Documentación
 
-Detailed HKA wiki documentation is available in [`hka-docs/`](./hka-docs/):
+- [`docs/ANALYSIS.md`](./docs/ANALYSIS.md) — análisis del proyecto y hoja de ruta.
+- [`docs/GATEWAY.md`](./docs/GATEWAY.md) — gateway REST/JSON y consumo por lenguaje.
+- [`docs/CATALOGS.md`](./docs/CATALOGS.md) — catálogos, formatos y fuentes oficiales.
+- [`hka-docs/`](./hka-docs/) — documentación de la wiki de HKA (manuales, ejemplos
+  XML por tipo de documento, ejemplos de código en PHP/C#/Java/Python, FAQ).
 
-- `01_documentos_fel/` — Web service integration manuals and method references
-- `02_ejemplos_codigo/` — Code examples in PHP, C#, Java, Python
-- `03_documentos_fiscales/` — Fiscal document type examples
-- `04_documentos_pac/` — PAC services guide
-- `05_ayuda/` — FAQ
+## Licencia
 
-## License
-
-MIT — see [LICENSE](./LICENSE).
+MIT — ver [LICENSE](./LICENSE).
