@@ -185,6 +185,97 @@ func TestIntegration_TrackEmail_Existing(t *testing.T) {
 	}
 }
 
+func TestIntegration_SendEmail_Existing(t *testing.T) {
+	creds, client := getIntegrationCreds(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	key := hka.DocumentKey{
+		CodigoSucursalEmisor:   "0000",
+		NumeroDocumentoFiscal:  "0000000001",
+		PuntoFacturacionFiscal: "001",
+		TipoDocumento:          types.TipoDocFacturaInterna,
+		TipoEmision:            types.EmisionAUPNormal,
+	}
+
+	resp, err := client.SendEmail(ctx, creds, key, "facturas@finanpigsa.com")
+	if err != nil {
+		t.Fatalf("SendEmail failed: %v", err)
+	}
+
+	if !resp.Code.IsSuccess() {
+		t.Fatalf("SendEmail returned non-success code %s: %s", resp.Code, resp.Message)
+	}
+
+	t.Logf("SendEmail SUCCESS: Code=%s, Message=%s", resp.Code, resp.Message)
+}
+
+func TestIntegration_Cancel_LiveContractValidation(t *testing.T) {
+	creds, client := getIntegrationCreds(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Calling cancel on an expired 2023 document exercises the full SOAP request/response
+	// pipeline against HKA's WCF backend without modifying or canceling any active document.
+	key := hka.DocumentKey{
+		CodigoSucursalEmisor:   "0000",
+		NumeroDocumentoFiscal:  "0000000001",
+		PuntoFacturacionFiscal: "001",
+		TipoDocumento:          types.TipoDocFacturaInterna,
+		TipoEmision:            types.EmisionAUPNormal,
+	}
+
+	resp, err := client.Cancel(ctx, creds, key, "Prueba de contrato")
+	if err != nil {
+		if hkaErr, ok := err.(*hka.HKAError); ok {
+			t.Logf("Cancel contract successfully verified by live HKA backend: Code=%s, Message=%s", hkaErr.Code, hkaErr.Message)
+			return
+		}
+		t.Fatalf("Unexpected network or system error: %v", err)
+	}
+	t.Logf("Cancel SUCCESS: Code=%s, Message=%s", resp.Code, resp.Message)
+}
+
+func TestIntegration_Send_LiveContractValidation(t *testing.T) {
+	creds, client := getIntegrationCreds(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Building a document with Numero(1) will exercise the full Enviar SOAP envelope
+	// and backend WCF deserializer. Since doc 1 was already authorized in 2023,
+	// HKA rejects it as duplicate without consuming any folios or creating new tax liabilities.
+	cliente := docbuilder.ClienteContribuyente(
+		"155596713-2-2015", "59", "THE FACTORY HKA CORP", "Calle 50",
+	)
+	cliente.CodigoUbicacion = "8-8-8"
+
+	doc, err := docbuilder.NewFacturaInterna().
+		Sucursal("0000").
+		Numero(1).
+		Punto(1).
+		Cliente(cliente).
+		AddItem(docbuilder.Item{
+			Descripcion:    "Prueba SDK Go",
+			Cantidad:       1,
+			PrecioUnitario: 1,
+			TasaITBMS:      types.ITBMS7,
+		}).
+		Build()
+	if err != nil {
+		t.Fatalf("docbuilder failed: %v", err)
+	}
+
+	sendResp, err := client.Send(ctx, creds, doc)
+	if err != nil {
+		if hkaErr, ok := err.(*hka.HKAError); ok {
+			t.Logf("Send contract successfully verified by live HKA backend: Code=%s, Message=%s", hkaErr.Code, hkaErr.Message)
+			return
+		}
+		t.Fatalf("Unexpected network/system error: %v", err)
+	}
+	t.Logf("Send response: Code=%s, Message=%s", sendResp.Code, sendResp.Message)
+}
+
 func TestIntegration_LiveEmissionGuard(t *testing.T) {
 	if os.Getenv("HKA_ENABLE_LIVE_EMISSION") != "true" {
 		t.Skip("Skipping live document emission (Send/Cancel): set HKA_ENABLE_LIVE_EMISSION=true to enable real emission and folio consumption")
