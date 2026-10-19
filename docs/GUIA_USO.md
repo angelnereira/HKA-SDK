@@ -88,10 +88,12 @@ import hka "github.com/angelnereira/hka-sdk"
 // Demo / integración (por defecto)
 client := hka.NewDemo()
 
-// Producción (endpoint que te da HKA)
+// Producción (endpoint que te da HKA) con reintentos y backoff exponencial
 client := hka.New(&hka.Config{
-    Endpoint: "https://emision.thefactoryhka.com.pa/ws/obj/v1.0/Service.svc",
-    Timeout:  60 * time.Second,
+    Endpoint:   "https://emision.thefactoryhka.com.pa/ws/obj/v1.0/Service.svc",
+    Timeout:    60 * time.Second,
+    Retries:    2,                      // Reintentos ante cortes transitorios de red
+    RetryDelay: 500 * time.Millisecond, // Tiempo base para backoff exponencial
 })
 ```
 
@@ -376,9 +378,9 @@ if err != nil {
 }
 ```
 
-> Por seguridad de cumplimiento, el SDK **no reintenta `Send` automáticamente**: un
-> reenvío tras un error de red podría crear una factura duplicada. Ante un
-> `NetworkError`, consulta `DocumentStatus` y reenvía solo si no fue recibido.
+> Por defecto `Config.Retries` es 0. Si configuras `Retries > 0`, el cliente reintentará peticiones
+> con backoff exponencial ante caídas transitorias de red o errores HTTP del servidor. Si recibes un
+> `NetworkError` al emitir, puedes consultar `DocumentStatus` con el número fiscal antes de reenviar.
 
 ---
 

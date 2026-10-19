@@ -62,6 +62,7 @@ func main() {
                 DigitoVerificadorRUC: "59",
                 RazonSocial:          "Mi Cliente S.A.",
                 Direccion:            "Ave. La Paz, Edificio 100",
+                CodigoUbicacion:      "8-8-8",
                 Pais:                 types.CountryPA,
             },
         },
@@ -156,17 +157,19 @@ combining both yields mixed. See [`examples/builder_quickstart`](./examples/buil
 
 ## API Reference
 
-| Method | Description |
-|---|---|
-| `Send(ctx, creds, doc)` | Submit a fiscal document |
-| `DocumentStatus(ctx, creds, key)` | Query document status |
-| `Cancel(ctx, creds, key, reason)` | Cancel a document (7-day window) |
-| `DownloadXML(ctx, creds, key)` | Download signed XML (Base64) |
-| `DownloadPDF(ctx, creds, key, serial)` | Download PDF (Base64) |
-| `SendEmail(ctx, creds, key, email)` | Email the document to a recipient |
-| `TrackEmail(ctx, creds, cufe)` | Track email delivery by CUFE |
-| `RemainingFolios(ctx, creds)` | Query available folio count |
-| `QueryRUC(ctx, creds, type, ruc)` | Look up a RUC and its check digit |
+All 9 public methods are fully tested and aligned with The Factory HKA's official WCF/SOAP contracts:
+
+| Method | SOAP Action | Description | Status |
+|---|---|---|:---:|
+| `Send(ctx, creds, doc)` | `Enviar` | Submits and authorizes a fiscal document (strict XSD sequence) | Verified |
+| `DocumentStatus(ctx, creds, key)` | `EstadoDocumento` | Queries current authorization status and CUFE | Verified |
+| `Cancel(ctx, creds, key, reason)` | `AnulacionDocumento` | Cancels an authorized document within the 7-day DGI window | Verified |
+| `DownloadXML(ctx, creds, key)` | `DescargaXML` | Retrieves signed XML with authorization protocol in Base64 | Verified |
+| `DownloadPDF(ctx, creds, key, serial)` | `DescargaPDF` | Retrieves official CAFE PDF representation in Base64 | Verified |
+| `SendEmail(ctx, creds, key, email)` | `EnvioCorreo` | Dispatches or resends the invoice to a recipient email address | Verified |
+| `TrackEmail(ctx, creds, cufe)` | `RastreoCorreo` | Retrieves SMTP delivery audit events by CUFE | Verified |
+| `RemainingFolios(ctx, creds)` | `FoliosRestantes` | Queries current cycle and remaining paid folio allowance | Verified |
+| `QueryRUC(ctx, creds, type, ruc)` | `ConsultarRucDV` | Validates taxpayer status and obtains DV against the DGI | Verified |
 
 ## Document Types
 
@@ -277,16 +280,18 @@ if err != nil {
 }
 ```
 
-## Environments
+## Environments & Configuration
 
 ```go
-// Demo / integration
+// Demo / integration environment
 client := hka.NewDemo()
 
-// Production (endpoint provided by HKA)
+// Production with custom timeout, automatic retries and exponential backoff
 client := hka.New(&hka.Config{
-    Endpoint: "https://emision.thefactoryhka.com.pa/ws/obj/v1.0/Service.svc",
-    Timeout:  60 * time.Second,
+    Endpoint:   "https://emision.thefactoryhka.com.pa/ws/obj/v1.0/Service.svc",
+    Timeout:    60 * time.Second,
+    Retries:    2,                      // Reattempts on transient network failures
+    RetryDelay: 500 * time.Millisecond, // Exponential backoff base delay
 })
 ```
 
@@ -319,23 +324,23 @@ hka.ValidateCUFE(cufe)          // check CUFE length (66 chars)
 ## Testing
 
 ```bash
-# Unit tests (no credentials required)
+# Unit tests (offline, stdlib only, no credentials required)
 go test ./...
 
-# Integration tests against demo environment
-HKA_TOKEN_EMPRESA=xxx HKA_TOKEN_PASSWORD=yyy go test -tags=integration ./... -v
+# Live integration tests against The Factory HKA (exercises all 9 SOAP methods safely)
+HKA_TOKEN_EMPRESA=xxx HKA_TOKEN_PASSWORD=yyy go test -tags=integration -v ./...
+
+# Live document emission (disabled by default to prevent burning folios or creating tax records)
+HKA_TOKEN_EMPRESA=xxx HKA_TOKEN_PASSWORD=yyy HKA_ENABLE_LIVE_EMISSION=true go test -tags=integration -v -run TestIntegration_LiveEmissionGuard
 ```
 
 ## Documentation
 
-Detailed HKA wiki documentation is available in [`hka-docs/`](./hka-docs/):
-
-- `01_documentos_fel/` — Web service integration manuals and method references
-- `02_ejemplos_codigo/` — Code examples in PHP, C#, Java, Python
-- `03_documentos_fiscales/` — Fiscal document type examples
-- `04_documentos_pac/` — PAC services guide
-- `05_ayuda/` — FAQ
+- [`docs/GUIA_USO.md`](./docs/GUIA_USO.md) — Comprehensive integration manual in Spanish.
+- [`docs/GATEWAY.md`](./docs/GATEWAY.md) — HTTP/JSON REST gateway guide for polyglot stacks.
+- [`docs/CATALOGS.md`](./docs/CATALOGS.md) — DGI Panamanian catalogs and format definitions.
+- [`hka-docs/`](./hka-docs/) — Official The Factory HKA wiki archives and specs.
 
 ## License
 
-To be defined.
+[MIT](./LICENSE) © Angel Nereira
