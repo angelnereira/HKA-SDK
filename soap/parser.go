@@ -8,9 +8,9 @@ import (
 	"github.com/angelnereira/hka-sdk/types"
 )
 
-// extract returns the inner text of the first occurrence of <tag>...</tag>.
+// extract returns the inner text of the first occurrence of <tag>...</tag> or <prefix:tag>...</prefix:tag>.
 func extract(xml, tag string) string {
-	re := regexp.MustCompile(`(?i)<` + regexp.QuoteMeta(tag) + `(?:\s[^>]*)?>([^<]*)<\/` + regexp.QuoteMeta(tag) + `>`)
+	re := regexp.MustCompile(`(?i)<(?:\w+:)?` + regexp.QuoteMeta(tag) + `(?:\s[^>]*)?>([^<]*)<\/(?:\w+:)?` + regexp.QuoteMeta(tag) + `>`)
 	m := re.FindStringSubmatch(xml)
 	if len(m) > 1 {
 		return strings.TrimSpace(unescapeXML(m[1]))
@@ -18,9 +18,9 @@ func extract(xml, tag string) string {
 	return ""
 }
 
-// extractAll returns every inner text occurrence of <tag>...</tag>.
+// extractAll returns every inner text occurrence of <tag>...</tag> or <prefix:tag>...</prefix:tag>.
 func extractAll(xml, tag string) []string {
-	re := regexp.MustCompile(`(?i)<` + regexp.QuoteMeta(tag) + `(?:\s[^>]*)?>([^<]*)<\/` + regexp.QuoteMeta(tag) + `>`)
+	re := regexp.MustCompile(`(?i)<(?:\w+:)?` + regexp.QuoteMeta(tag) + `(?:\s[^>]*)?>([^<]*)<\/(?:\w+:)?` + regexp.QuoteMeta(tag) + `>`)
 	matches := re.FindAllStringSubmatch(xml, -1)
 	out := make([]string, 0, len(matches))
 	for _, m := range matches {
@@ -33,22 +33,12 @@ func extractAll(xml, tag string) []string {
 
 // extractBlock returns the inner content of the first occurrence of <tag>...</tag> including sub-elements.
 func extractBlock(xml, tag string) string {
-	open := "<" + tag
-	close := "</" + tag + ">"
-	start := strings.Index(strings.ToLower(xml), strings.ToLower(open))
-	if start == -1 {
-		return ""
+	re := regexp.MustCompile(`(?i)<(?:\w+:)?` + regexp.QuoteMeta(tag) + `(?:\s[^>]*)?>([\s\S]*?)<\/(?:\w+:)?` + regexp.QuoteMeta(tag) + `>`)
+	m := re.FindStringSubmatch(xml)
+	if len(m) > 1 {
+		return m[1]
 	}
-	end := strings.Index(xml[start:], close)
-	if end == -1 {
-		return ""
-	}
-	block := xml[start : start+end+len(close)]
-	inner := strings.Index(block, ">")
-	if inner == -1 {
-		return ""
-	}
-	return block[inner+1 : len(block)-len(close)]
+	return ""
 }
 
 func unescapeXML(s string) string {
@@ -114,6 +104,13 @@ func ParseDownloadResponse(raw []byte) *types.DownloadResponse {
 // ParseFoliosResponse parses the SOAP response from FoliosRestantes().
 func ParseFoliosResponse(raw []byte) *types.FoliosResponse {
 	xml := string(raw)
+	disponibles := extract(xml, "foliosDisponibleCiclo")
+	if disponibles == "" {
+		disponibles = extract(xml, "foliosDisponibles")
+	}
+	if disponibles == "" {
+		disponibles = extract(xml, "foliosTotalesDisponibles")
+	}
 	return &types.FoliosResponse{
 		Code:                  types.ReturnCode(extract(xml, "codigo")),
 		Message:               extract(xml, "mensaje"),
@@ -123,7 +120,7 @@ func ParseFoliosResponse(raw []byte) *types.FoliosResponse {
 		FechaCiclo:            extract(xml, "fechaCiclo"),
 		FoliosTotalesCiclo:    extract(xml, "foliosTotalesCiclo"),
 		FoliosUtilizadosCiclo: extract(xml, "foliosUtilizadosCiclo"),
-		FoliosDisponibles:     extract(xml, "foliosDisponibles"),
+		FoliosDisponibles:     disponibles,
 		FoliosTotales:         extract(xml, "foliosTotales"),
 		Result:                extract(xml, "resultado"),
 	}
@@ -165,7 +162,10 @@ func ParseTrackEmailResponse(raw []byte) *types.TrackEmailResponse {
 	// parse each email track item block
 	correos := extractAll(xml, "correo")
 	estados := extractAll(xml, "estado")
-	creados := extractAll(xml, "creadoEn")
+	creados := extractAll(xml, "creado_en")
+	if len(creados) == 0 {
+		creados = extractAll(xml, "creadoEn")
+	}
 	msgIDs := extractAll(xml, "messageId")
 	for i, c := range correos {
 		t := types.EmailTrack{Correo: c}

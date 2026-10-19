@@ -49,12 +49,20 @@ type Config struct {
 	Endpoint string
 	// Timeout overrides the default 30-second HTTP timeout.
 	Timeout time.Duration
+	// Retries specifies the number of attempts on transient network failures.
+	// Defaults to 0 (no retries).
+	Retries int
+	// RetryDelay is the initial delay between retries.
+	// Defaults to 500ms.
+	RetryDelay time.Duration
 }
 
 // Client is the HKA SDK entry point. It is goroutine-safe and intended to be
 // shared across goroutines and tenants. Credentials are per-call.
 type Client struct {
-	http *internal.HTTPClient
+	http       *internal.HTTPClient
+	retries    int
+	retryDelay time.Duration
 }
 
 // New creates a Client with the provided configuration.
@@ -62,6 +70,8 @@ type Client struct {
 func New(cfg *Config) *Client {
 	endpoint := DemoEndpoint
 	timeout := defaultTimeout
+	retries := 0
+	retryDelay := 500 * time.Millisecond
 	if cfg != nil {
 		if cfg.Endpoint != "" {
 			endpoint = cfg.Endpoint
@@ -69,10 +79,43 @@ func New(cfg *Config) *Client {
 		if cfg.Timeout > 0 {
 			timeout = cfg.Timeout
 		}
+		if cfg.Retries > 0 {
+			retries = cfg.Retries
+		}
+		if cfg.RetryDelay > 0 {
+			retryDelay = cfg.RetryDelay
+		}
 	}
 	return &Client{
-		http: internal.NewHTTPClient(endpoint, timeout),
+		http:       internal.NewHTTPClient(endpoint, timeout),
+		retries:    retries,
+		retryDelay: retryDelay,
 	}
+}
+
+func (c *Client) postWithRetry(ctx context.Context, action, body string) ([]byte, error) {
+	var lastErr error
+	delay := c.retryDelay
+	if delay <= 0 {
+		delay = 500 * time.Millisecond
+	}
+	attempts := 1 + c.retries
+	for i := 0; i < attempts; i++ {
+		if i > 0 {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(delay):
+				delay *= 2
+			}
+		}
+		raw, err := c.http.Post(ctx, action, body)
+		if err == nil {
+			return raw, nil
+		}
+		lastErr = err
+	}
+	return nil, lastErr
 }
 
 // NewDemo creates a Client pointed at the HKA demo/integration environment.
@@ -141,7 +184,7 @@ func (c *Client) Send(ctx context.Context, creds Credentials, doc *types.Documen
 	}
 
 	envelope := soap.BuildEnviarEnvelope(creds.TokenEmpresa, creds.TokenPassword, doc)
-	raw, err := c.http.Post(ctx, soapActions["Enviar"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["Enviar"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}
@@ -155,12 +198,15 @@ func (c *Client) Send(ctx context.Context, creds Credentials, doc *types.Documen
 
 // DocumentStatus queries the current status of a previously submitted document.
 func (c *Client) DocumentStatus(ctx context.Context, creds Credentials, key DocumentKey) (*types.StatusResponse, error) {
+	if err := validate.Credentials(creds); err != nil {
+		return nil, err
+	}
 	envelope := soap.BuildEstadoEnvelope(
 		creds.TokenEmpresa, creds.TokenPassword,
 		key.CodigoSucursalEmisor, key.NumeroDocumentoFiscal, key.PuntoFacturacionFiscal,
 		string(key.TipoDocumento), string(key.TipoEmision),
 	)
-	raw, err := c.http.Post(ctx, soapActions["EstadoDocumento"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["EstadoDocumento"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}
@@ -174,12 +220,15 @@ func (c *Client) DocumentStatus(ctx context.Context, creds Credentials, key Docu
 // Cancel requests cancellation of a fiscal document.
 // The HKA service enforces a 7-day window; use IsWithin7Days to check beforehand.
 func (c *Client) Cancel(ctx context.Context, creds Credentials, key DocumentKey, reason string) (*types.CancelResponse, error) {
+	if err := validate.Credentials(creds); err != nil {
+		return nil, err
+	}
 	envelope := soap.BuildAnulacionEnvelope(
 		creds.TokenEmpresa, creds.TokenPassword,
 		key.CodigoSucursalEmisor, key.NumeroDocumentoFiscal, key.PuntoFacturacionFiscal,
 		string(key.TipoDocumento), string(key.TipoEmision), reason,
 	)
-	raw, err := c.http.Post(ctx, soapActions["AnulacionDocumento"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["AnulacionDocumento"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}
@@ -192,12 +241,15 @@ func (c *Client) Cancel(ctx context.Context, creds Credentials, key DocumentKey,
 
 // DownloadXML retrieves the signed XML file for a document as Base64.
 func (c *Client) DownloadXML(ctx context.Context, creds Credentials, key DocumentKey) (*types.DownloadResponse, error) {
+	if err := validate.Credentials(creds); err != nil {
+		return nil, err
+	}
 	envelope := soap.BuildDescargaXMLEnvelope(
 		creds.TokenEmpresa, creds.TokenPassword,
 		key.CodigoSucursalEmisor, key.NumeroDocumentoFiscal, key.PuntoFacturacionFiscal,
 		string(key.TipoDocumento), string(key.TipoEmision),
 	)
-	raw, err := c.http.Post(ctx, soapActions["DescargaXML"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["DescargaXML"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}
@@ -210,12 +262,15 @@ func (c *Client) DownloadXML(ctx context.Context, creds Credentials, key Documen
 
 // DownloadPDF retrieves the PDF representation of a document as Base64.
 func (c *Client) DownloadPDF(ctx context.Context, creds Credentials, key DocumentKey, deviceSerial string) (*types.DownloadResponse, error) {
+	if err := validate.Credentials(creds); err != nil {
+		return nil, err
+	}
 	envelope := soap.BuildDescargaPDFEnvelope(
 		creds.TokenEmpresa, creds.TokenPassword,
 		key.CodigoSucursalEmisor, key.NumeroDocumentoFiscal, key.PuntoFacturacionFiscal,
 		string(key.TipoDocumento), string(key.TipoEmision), deviceSerial,
 	)
-	raw, err := c.http.Post(ctx, soapActions["DescargaPDF"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["DescargaPDF"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}
@@ -228,12 +283,15 @@ func (c *Client) DownloadPDF(ctx context.Context, creds Credentials, key Documen
 
 // SendEmail requests the HKA service to email the document to the provided address.
 func (c *Client) SendEmail(ctx context.Context, creds Credentials, key DocumentKey, email string) (*types.BaseResponse, error) {
+	if err := validate.Credentials(creds); err != nil {
+		return nil, err
+	}
 	envelope := soap.BuildEnvioCorreoEnvelope(
 		creds.TokenEmpresa, creds.TokenPassword,
 		key.CodigoSucursalEmisor, key.NumeroDocumentoFiscal, key.PuntoFacturacionFiscal,
 		string(key.TipoDocumento), string(key.TipoEmision), email,
 	)
-	raw, err := c.http.Post(ctx, soapActions["EnvioCorreo"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["EnvioCorreo"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}
@@ -246,8 +304,11 @@ func (c *Client) SendEmail(ctx context.Context, creds Credentials, key DocumentK
 
 // TrackEmail retrieves email delivery tracking information for a document identified by CUFE.
 func (c *Client) TrackEmail(ctx context.Context, creds Credentials, cufe string) (*types.TrackEmailResponse, error) {
+	if err := validate.Credentials(creds); err != nil {
+		return nil, err
+	}
 	envelope := soap.BuildRastreoCorreoEnvelope(creds.TokenEmpresa, creds.TokenPassword, cufe)
-	raw, err := c.http.Post(ctx, soapActions["RastreoCorreo"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["RastreoCorreo"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}
@@ -260,8 +321,11 @@ func (c *Client) TrackEmail(ctx context.Context, creds Credentials, cufe string)
 
 // RemainingFolios queries the number of available folios (document slots) for the tenant.
 func (c *Client) RemainingFolios(ctx context.Context, creds Credentials) (*types.FoliosResponse, error) {
+	if err := validate.Credentials(creds); err != nil {
+		return nil, err
+	}
 	envelope := soap.BuildFoliosEnvelope(creds.TokenEmpresa, creds.TokenPassword)
-	raw, err := c.http.Post(ctx, soapActions["FoliosRestantes"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["FoliosRestantes"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}
@@ -274,8 +338,11 @@ func (c *Client) RemainingFolios(ctx context.Context, creds Credentials) (*types
 
 // QueryRUC looks up a Panamanian RUC number and returns its check digit and registration status.
 func (c *Client) QueryRUC(ctx context.Context, creds Credentials, rucType types.RUCType, ruc string) (*types.RUCResponse, error) {
+	if err := validate.Credentials(creds); err != nil {
+		return nil, err
+	}
 	envelope := soap.BuildConsultarRucDVEnvelope(creds.TokenEmpresa, creds.TokenPassword, string(rucType), ruc)
-	raw, err := c.http.Post(ctx, soapActions["ConsultarRucDV"], envelope)
+	raw, err := c.postWithRetry(ctx, soapActions["ConsultarRucDV"], envelope)
 	if err != nil {
 		return nil, &NetworkError{Cause: err}
 	}

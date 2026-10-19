@@ -62,9 +62,12 @@ type Cliente struct {
 	PaisOtro                    string      // required when Pais = "ZZ"
 }
 
-// AutorizadoDescarga represents a person authorized to download the document.
+// AutorizadoDescarga represents an entity authorized to download the document and its events.
 type AutorizadoDescarga struct {
-	NombreAutorizado string
+	TipoContribuyente string // "1": Natural, "2": Jurídico
+	RUCReceptor       string // RUC del receptor autorizado
+	DigitoVerifRUC    string // Dígito verificador
+	NombreAutorizado  string // fallback / description
 }
 
 // PedidoComercialGlobal contains global purchase order data.

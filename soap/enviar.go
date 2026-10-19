@@ -45,28 +45,14 @@ func BuildEnviarEnvelope(tokenEmpresa, tokenPassword string, doc *types.Document
 func buildDocumento(sb *strings.Builder, doc *types.DocumentoElectronico) {
 	internal.Tag(sb, nsSer, "codigoSucursalEmisor", doc.CodigoSucursalEmisor)
 	internal.Tag(sb, nsSer, "tipoSucursal", string(doc.TipoSucursal))
-	buildDatosTransaccion(sb, &doc.DatosTransaccion)
+	buildDatosTransaccion(sb, &doc.DatosTransaccion, doc.AutorizadosDescarga)
 	buildListaItems(sb, doc.ListaItems)
-	buildTotales(sb, &doc.TotalesSubTotales)
-
-	if len(doc.AutorizadosDescarga) > 0 {
-		internal.Open(sb, nsSer, "autorizadosDescarga")
-		for _, a := range doc.AutorizadosDescarga {
-			internal.Open(sb, nsSer, "autorizadoDescarga")
-			internal.Tag(sb, nsSer, "nombreAutorizado", a.NombreAutorizado)
-			internal.Close(sb, nsSer, "autorizadoDescarga")
-		}
-		internal.Close(sb, nsSer, "autorizadosDescarga")
-	}
+	buildTotales(sb, &doc.TotalesSubTotales, doc.DatosTransaccion.Retencion)
 
 	if doc.PedidoGlobal != nil {
-		internal.Open(sb, nsSer, "pedidoGlobal")
-		internal.Tag(sb, nsSer, "numeroPedido", doc.PedidoGlobal.NumeroPedido)
-		internal.Tag(sb, nsSer, "fechaPedido", doc.PedidoGlobal.FechaPedido)
-		internal.Tag(sb, nsSer, "nroLinea", doc.PedidoGlobal.NroLinea)
-		internal.Tag(sb, nsSer, "montoTotal", doc.PedidoGlobal.MontoTotal)
-		internal.Tag(sb, nsSer, "monedaPedido", doc.PedidoGlobal.MonedaPedido)
-		internal.Close(sb, nsSer, "pedidoGlobal")
+		internal.Open(sb, nsSer, "pedidoComercialGlobal")
+		internal.Tag(sb, nsSer, "nroPedidoCompraGlobal", doc.PedidoGlobal.NumeroPedido)
+		internal.Close(sb, nsSer, "pedidoComercialGlobal")
 	}
 
 	if doc.InfoLogistica != nil {
@@ -84,7 +70,7 @@ func buildDocumento(sb *strings.Builder, doc *types.DocumentoElectronico) {
 	}
 }
 
-func buildDatosTransaccion(sb *strings.Builder, dt *types.DatosTransaccion) {
+func buildDatosTransaccion(sb *strings.Builder, dt *types.DatosTransaccion, autorizados []types.AutorizadoDescarga) {
 	internal.Open(sb, nsSer, "datosTransaccion")
 	internal.Tag(sb, nsSer, "tipoEmision", string(dt.TipoEmision))
 	internal.Tag(sb, nsSer, "fechaInicioContingencia", dt.FechaInicioContingencia)
@@ -105,6 +91,10 @@ func buildDatosTransaccion(sb *strings.Builder, dt *types.DatosTransaccion) {
 	internal.Tag(sb, nsSer, "informacionInteres", dt.InformacionInteres)
 	buildCliente(sb, &dt.Cliente)
 
+	if dt.DatosFacturaExportacion != nil {
+		buildExportacion(sb, dt.DatosFacturaExportacion)
+	}
+
 	if len(dt.ListaDocsFiscalReferenciados) > 0 {
 		internal.Open(sb, nsSer, "listaDocsFiscalReferenciados")
 		for _, ref := range dt.ListaDocsFiscalReferenciados {
@@ -118,16 +108,22 @@ func buildDatosTransaccion(sb *strings.Builder, dt *types.DatosTransaccion) {
 		internal.Close(sb, nsSer, "listaDocsFiscalReferenciados")
 	}
 
-	if dt.DatosFacturaExportacion != nil {
-		buildExportacion(sb, dt.DatosFacturaExportacion)
-	}
-
-	if dt.Retencion != nil {
-		internal.Open(sb, nsSer, "retencion")
-		internal.Tag(sb, nsSer, "codigoRetencion", string(dt.Retencion.CodigoRetencion))
-		internal.Tag(sb, nsSer, "fechaRetencion", dt.Retencion.FechaRetencion)
-		internal.Tag(sb, nsSer, "montoRetencion", dt.Retencion.MontoRetencion)
-		internal.Close(sb, nsSer, "retencion")
+	if len(autorizados) > 0 {
+		internal.Open(sb, nsSer, "listaAutorizadosDescargaFEyEventos")
+		for _, a := range autorizados {
+			internal.Open(sb, nsSer, "autorizadoDescargaFEyEventos")
+			if a.TipoContribuyente != "" {
+				internal.Tag(sb, nsSer, "tipoContribuyente", a.TipoContribuyente)
+			}
+			if a.RUCReceptor != "" {
+				internal.Tag(sb, nsSer, "rucReceptor", a.RUCReceptor)
+			}
+			if a.DigitoVerifRUC != "" {
+				internal.Tag(sb, nsSer, "digitoVerifRucReceptor", a.DigitoVerifRUC)
+			}
+			internal.Close(sb, nsSer, "autorizadoDescargaFEyEventos")
+		}
+		internal.Close(sb, nsSer, "listaAutorizadosDescargaFEyEventos")
 	}
 
 	internal.Close(sb, nsSer, "datosTransaccion")
@@ -204,15 +200,14 @@ func buildItem(sb *strings.Builder, item *types.Item) {
 	internal.Tag(sb, nsSer, "valorISC", item.ValorISC)
 
 	if len(item.ListaOTI) > 0 {
-		internal.Open(sb, nsSer, "listaOTI")
+		internal.Open(sb, nsSer, "listaItemOTI")
 		for _, oti := range item.ListaOTI {
 			internal.Open(sb, nsSer, "oti")
-			internal.Tag(sb, nsSer, "tasa", string(oti.Tasa))
-			internal.Tag(sb, nsSer, "valorOTI", oti.ValorOTI)
-			internal.Tag(sb, nsSer, "flagMonto", oti.FlagMonto)
+			internal.Tag(sb, nsSer, "tasaOTI", string(oti.Tasa))
+			internal.Tag(sb, nsSer, "valorTasa", oti.ValorOTI)
 			internal.Close(sb, nsSer, "oti")
 		}
-		internal.Close(sb, nsSer, "listaOTI")
+		internal.Close(sb, nsSer, "listaItemOTI")
 	}
 
 	if item.Medicina != nil {
@@ -238,16 +233,16 @@ func buildItem(sb *strings.Builder, item *types.Item) {
 	}
 
 	if item.PedidoItem != nil {
-		internal.Open(sb, nsSer, "pedidoItem")
-		internal.Tag(sb, nsSer, "numeroPedido", item.PedidoItem.NumeroPedido)
-		internal.Tag(sb, nsSer, "nroLinea", item.PedidoItem.NroLinea)
-		internal.Close(sb, nsSer, "pedidoItem")
+		internal.Open(sb, nsSer, "pedidoComercialItem")
+		internal.Tag(sb, nsSer, "nroPedidoCompraItem", item.PedidoItem.NumeroPedido)
+		internal.Tag(sb, nsSer, "nroItem", item.PedidoItem.NroLinea)
+		internal.Close(sb, nsSer, "pedidoComercialItem")
 	}
 
 	internal.Close(sb, nsSer, "item")
 }
 
-func buildTotales(sb *strings.Builder, t *types.TotalesSubTotales) {
+func buildTotales(sb *strings.Builder, t *types.TotalesSubTotales, dtRetencion *types.Retencion) {
 	internal.Open(sb, nsSer, "totalesSubTotales")
 	internal.Tag(sb, nsSer, "totalPrecioNeto", t.TotalPrecioNeto)
 	internal.Tag(sb, nsSer, "totalITBMS", t.TotalITBMS)
@@ -266,6 +261,15 @@ func buildTotales(sb *strings.Builder, t *types.TotalesSubTotales) {
 	}
 	internal.Tag(sb, nsSer, "totalTodosItems", t.TotalTodosItems)
 
+	if t.DescuentoBonificacion != nil {
+		internal.Open(sb, nsSer, "listaDescBonificacion")
+		internal.Open(sb, nsSer, "descuentoBonificacion")
+		internal.Tag(sb, nsSer, "descDescuento", t.DescuentoBonificacion.DescripcionDescuento)
+		internal.Tag(sb, nsSer, "montoDescuento", t.DescuentoBonificacion.MontoDescuento)
+		internal.Close(sb, nsSer, "descuentoBonificacion")
+		internal.Close(sb, nsSer, "listaDescBonificacion")
+	}
+
 	if len(t.ListaFormaPago) > 0 {
 		internal.Open(sb, nsSer, "listaFormaPago")
 		for _, fp := range t.ListaFormaPago {
@@ -276,6 +280,17 @@ func buildTotales(sb *strings.Builder, t *types.TotalesSubTotales) {
 			internal.Close(sb, nsSer, "formaPago")
 		}
 		internal.Close(sb, nsSer, "listaFormaPago")
+	}
+
+	ret := t.Retencion
+	if ret == nil {
+		ret = dtRetencion
+	}
+	if ret != nil {
+		internal.Open(sb, nsSer, "retencion")
+		internal.Tag(sb, nsSer, "codigoRetencion", string(ret.CodigoRetencion))
+		internal.Tag(sb, nsSer, "montoRetencion", ret.MontoRetencion)
+		internal.Close(sb, nsSer, "retencion")
 	}
 
 	if len(t.ListaPagoPlazo) > 0 {
@@ -292,19 +307,12 @@ func buildTotales(sb *strings.Builder, t *types.TotalesSubTotales) {
 	if len(t.ListaTotalOTI) > 0 {
 		internal.Open(sb, nsSer, "listaTotalOTI")
 		for _, oti := range t.ListaTotalOTI {
-			internal.Open(sb, nsSer, "totalOTI")
-			internal.Tag(sb, nsSer, "tasa", string(oti.Tasa))
+			internal.Open(sb, nsSer, "totalOti")
+			internal.Tag(sb, nsSer, "codigoTotalOTI", string(oti.Tasa))
 			internal.Tag(sb, nsSer, "valorTotalOTI", oti.ValorTotalOTI)
-			internal.Close(sb, nsSer, "totalOTI")
+			internal.Close(sb, nsSer, "totalOti")
 		}
 		internal.Close(sb, nsSer, "listaTotalOTI")
-	}
-
-	if t.DescuentoBonificacion != nil {
-		internal.Open(sb, nsSer, "descuentoBonificacion")
-		internal.Tag(sb, nsSer, "montoDescuento", t.DescuentoBonificacion.MontoDescuento)
-		internal.Tag(sb, nsSer, "descripcionDescuento", t.DescuentoBonificacion.DescripcionDescuento)
-		internal.Close(sb, nsSer, "descuentoBonificacion")
 	}
 
 	internal.Close(sb, nsSer, "totalesSubTotales")

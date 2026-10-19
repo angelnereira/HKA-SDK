@@ -20,6 +20,7 @@ type TotalesSubTotales struct {
 	ListaPagoPlazo        []CuotaPlazo
 	ListaTotalOTI         []TotalOTI
 	DescuentoBonificacion *DescuentoBonificacion
+	Retencion             *Retencion
 }
 
 // FormaPagoItem represents one payment method entry.
