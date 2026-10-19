@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	hka "github.com/angelnereira/hka-sdk"
@@ -136,11 +137,12 @@ func (h *Handler) buildDocument(req *DocumentRequest) (*types.DocumentoElectroni
 }
 
 func (h *Handler) buildOnly(w http.ResponseWriter, r *http.Request) {
-	var req DocumentRequest
-	if !decode(w, r, &req) {
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errResp("error reading body: "+err.Error()))
 		return
 	}
-	doc, err := h.buildDocument(&req)
+	doc, err := docbuilder.FromJSON(data)
 	if err != nil {
 		writeBuildError(w, err)
 		return
@@ -153,11 +155,12 @@ func (h *Handler) send(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var req DocumentRequest
-	if !decode(w, r, &req) {
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, errResp("error reading body: "+err.Error()))
 		return
 	}
-	doc, err := h.buildDocument(&req)
+	doc, err := docbuilder.FromJSON(data)
 	if err != nil {
 		writeBuildError(w, err)
 		return

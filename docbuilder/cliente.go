@@ -8,7 +8,7 @@ import "github.com/angelnereira/hka-sdk/types"
 
 // ClienteContribuyente builds a registered taxpayer client (TipoClienteFE 01).
 // The taxpayer type defaults to juridical; use ClienteContribuyenteNatural for a
-// natural person.
+// natural person. CodigoUbicacion defaults to "8-8-8" (Panamá Centro).
 func ClienteContribuyente(ruc, dv, razonSocial, direccion string) types.Cliente {
 	return types.Cliente{
 		TipoClienteFE:        types.ClienteContribuyente,
@@ -17,6 +17,7 @@ func ClienteContribuyente(ruc, dv, razonSocial, direccion string) types.Cliente 
 		DigitoVerificadorRUC: dv,
 		RazonSocial:          razonSocial,
 		Direccion:            direccion,
+		CodigoUbicacion:      "8-8-8",
 		Pais:                 types.CountryPA,
 	}
 }
@@ -36,6 +37,7 @@ func ClienteConsumidorFinal(razonSocial, direccion string) types.Cliente {
 		TipoContribuyente: types.ContribuyenteNatural,
 		RazonSocial:       razonSocial,
 		Direccion:         direccion,
+		CodigoUbicacion:   "8-8-8",
 		Pais:              types.CountryPA,
 	}
 }
@@ -50,6 +52,7 @@ func ClienteGobierno(ruc, dv, razonSocial, direccion string) types.Cliente {
 		DigitoVerificadorRUC: dv,
 		RazonSocial:          razonSocial,
 		Direccion:            direccion,
+		CodigoUbicacion:      "8-8-8",
 		Pais:                 types.CountryPA,
 	}
 }

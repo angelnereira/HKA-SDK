@@ -10,6 +10,7 @@ import (
 
 	hka "github.com/angelnereira/hka-sdk"
 	"github.com/angelnereira/hka-sdk/gateway"
+	"github.com/angelnereira/hka-sdk/types"
 )
 
 func newServer() http.Handler {
@@ -48,11 +49,12 @@ func TestBuildOnly_ComputesTotals(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
-	var doc map[string]any
-	_ = json.Unmarshal(w.Body.Bytes(), &doc)
-	totales, _ := doc["TotalesSubTotales"].(map[string]any)
-	if totales == nil || totales["TotalFactura"] != "107.00" {
-		t.Errorf("expected TotalFactura 107.00, got %v", totales["TotalFactura"])
+	var doc types.DocumentoElectronico
+	if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("failed to unmarshal built document: %v", err)
+	}
+	if doc.TotalesSubTotales.TotalFactura != "107.00" {
+		t.Errorf("expected TotalFactura 107.00, got %v", doc.TotalesSubTotales.TotalFactura)
 	}
 }
 
@@ -67,12 +69,101 @@ func TestBuildOnly_AutoTasaITBMS(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
 	}
-	var doc map[string]any
-	_ = json.Unmarshal(w.Body.Bytes(), &doc)
-	items, _ := doc["ListaItems"].([]any)
-	first, _ := items[0].(map[string]any)
-	if first["TasaITBMS"] != "02" { // 10% for alcohol
-		t.Errorf("expected inferred TasaITBMS 02, got %v", first["TasaITBMS"])
+	var doc types.DocumentoElectronico
+	if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("failed to unmarshal built document: %v", err)
+	}
+	if len(doc.ListaItems) == 0 || doc.ListaItems[0].TasaITBMS != "02" { // 10% for alcohol
+		t.Errorf("expected inferred TasaITBMS 02, got %v", doc.ListaItems)
+	}
+}
+
+func TestBuildOnly_FullHKASchema(t *testing.T) {
+	srv := newServer()
+	body := `{
+		"codigoSucursalEmisor": "0000",
+		"datosTransaccion": {
+			"tipoEmision": "01",
+			"tipoDocumento": "01",
+			"numeroDocumentoFiscal": "0000000088",
+			"puntoFacturacionFiscal": "001",
+			"fechaEmision": "2026-10-18T10:00:00-05:00",
+			"naturalezaOperacion": "01",
+			"tipoOperacion": "1",
+			"destinoOperacion": "1",
+			"formatoCAFE": "3",
+			"entregaCAFE": "3",
+			"envioContenedor": "1",
+			"procesoGeneracion": "1",
+			"tipoVenta": "1",
+			"cliente": {
+				"tipoClienteFE": "01",
+				"tipoContribuyente": "2",
+				"numeroRUC": "155596713-2-2015",
+				"digitoVerificadorRUC": "59",
+				"razonSocial": "CLIENTE S.A.",
+				"direccion": "Calle 50",
+				"codigoUbicacion": "8-8-8",
+				"pais": "PA"
+			}
+		},
+		"listaItems": [
+			{
+				"descripcion": "Item directo",
+				"cantidad": "2.000000",
+				"precioUnitario": "25.000000",
+				"tasaITBMS": "01"
+			}
+		]
+	}`
+	w, _ := do(t, srv, "POST", "/v1/documents/build", body, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var doc types.DocumentoElectronico
+	if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if doc.TotalesSubTotales.TotalFactura != "53.50" {
+		t.Errorf("expected 53.50, got %s", doc.TotalesSubTotales.TotalFactura)
+	}
+}
+
+func TestBuildOnly_GobiernoDocument(t *testing.T) {
+	srv := newServer()
+	body := `{
+		"tipo": "gobierno",
+		"numero": 99,
+		"punto": 1,
+		"cliente": {
+			"tipo": "gobierno",
+			"ruc": "8-NT-1-13656",
+			"dv": "43",
+			"razonSocial": "MINISTERIO",
+			"direccion": "Ancon"
+		},
+		"items": [
+			{
+				"descripcion": "Papeleria",
+				"cantidad": 1,
+				"precioUnitario": 100,
+				"tasaITBMS": "01",
+				"codigoCPBSAbrev": "13",
+				"codigoCPBS": "1310",
+				"unidadMedidaCPBS": "und"
+			}
+		]
+	}`
+	w, _ := do(t, srv, "POST", "/v1/documents/build", body, nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", w.Code, w.Body.String())
+	}
+	var doc types.DocumentoElectronico
+	if err := json.Unmarshal(w.Body.Bytes(), &doc); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+	if doc.DatosTransaccion.Cliente.TipoClienteFE != types.ClienteGobierno {
+		t.Errorf("expected gobierno client, got %s", doc.DatosTransaccion.Cliente.TipoClienteFE)
 	}
 }
 

@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/angelnereira/hka-sdk/docbuilder"
 	"github.com/angelnereira/hka-sdk/internal"
 	"github.com/angelnereira/hka-sdk/soap"
 	"github.com/angelnereira/hka-sdk/types"
@@ -194,6 +195,22 @@ func (c *Client) Send(ctx context.Context, creds Credentials, doc *types.Documen
 		return nil, &HKAError{Code: resp.Code, Message: resp.Message, Raw: string(raw)}
 	}
 	return resp, nil
+}
+
+// SendPayload accepts any dynamic payload (JSON []byte, string, io.Reader, map[string]any,
+// or typed struct), parses it, computes totals, validates, and submits it to HKA.
+func (c *Client) SendPayload(ctx context.Context, creds Credentials, payload any) (*types.SendResponse, error) {
+	doc, err := docbuilder.FromPayload(payload)
+	if err != nil {
+		return nil, err
+	}
+	return c.Send(ctx, creds, doc)
+}
+
+// ParseDocument parses any dynamic payload (JSON []byte, string, io.Reader, or map[string]any)
+// into a validated *types.DocumentoElectronico with computed totals.
+func ParseDocument(payload any) (*types.DocumentoElectronico, error) {
+	return docbuilder.FromPayload(payload)
 }
 
 // DocumentStatus queries the current status of a previously submitted document.

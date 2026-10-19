@@ -146,6 +146,8 @@ HKA rules require:
 | `NewFacturaZonaFranca()` | 08 — free-zone invoice |
 | `NewReembolso()` | 09 — reimbursement |
 | `NewFacturaExtranjera()` | 10 — foreign-operation invoice |
+| `NewFacturaGobierno()` | 01 — government entity invoice (requires CPBS codes per item) |
+| `NewFacturaConsumidorFinal()` | 01 — final consumer invoice (client type 02) |
 
 Client constructors fill the fields each category requires:
 `ClienteContribuyente`, `ClienteContribuyenteNatural`, `ClienteConsumidorFinal`,
@@ -154,6 +156,39 @@ Client constructors fill the fields each category requires:
 Payment terms are inferred: with no calls the builder adds a single cash payment
 for the full total (immediate); `AddPagoPlazo(...)` switches to deferred, and
 combining both yields mixed. See [`examples/builder_quickstart`](./examples/builder_quickstart).
+
+## Dynamic Payloads (JSON / Map / Webhooks)
+
+The SDK can dynamically ingest, normalize, and validate payloads from arbitrary sources (JSON strings, byte slices, `io.Reader`, `map[string]any`, or ERP webhooks). It accepts both simplified developer-friendly payloads and the full official HKA JSON schema, computing all taxes and monetary subtotals automatically:
+
+```go
+// Ingest dynamic JSON directly:
+jsonPayload := `{
+    "tipo": "01",
+    "numero": 105,
+    "punto": 1,
+    "cliente": {
+        "tipo": "contribuyente",
+        "ruc": "155596713-2-2015",
+        "dv": "59",
+        "razonSocial": "Mi Cliente S.A.",
+        "direccion": "Calle 50"
+    },
+    "items": [
+        {"descripcion": "Servicio de desarrollo", "cantidad": 2, "precioUnitario": 100, "tasaITBMS": "01"}
+    ]
+}`
+
+// Option A: Send directly in a single call
+resp, err := client.SendPayload(ctx, creds, jsonPayload)
+
+// Option B: Parse into strongly typed DocumentoElectronico first
+doc, err := hka.ParseDocument(jsonPayload)
+if err != nil {
+    // Returns *ValidationError if any field is invalid
+}
+resp, err = client.Send(ctx, creds, doc)
+```
 
 ## API Reference
 

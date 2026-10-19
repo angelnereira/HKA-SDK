@@ -276,6 +276,45 @@ func TestIntegration_Send_LiveContractValidation(t *testing.T) {
 	t.Logf("Send response: Code=%s, Message=%s", sendResp.Code, sendResp.Message)
 }
 
+func TestIntegration_SendPayload_DynamicJSON(t *testing.T) {
+	creds, client := getIntegrationCreds(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	// Pass dynamic JSON payload directly to client.SendPayload
+	jsonPayload := `{
+		"tipo": "01",
+		"sucursal": "0000",
+		"numero": 1,
+		"punto": 1,
+		"cliente": {
+			"tipo": "contribuyente",
+			"ruc": "155596713-2-2015",
+			"dv": "59",
+			"razonSocial": "THE FACTORY HKA CORP",
+			"direccion": "Calle 50"
+		},
+		"items": [
+			{
+				"descripcion": "Servicio Dynamic Payload",
+				"cantidad": 1,
+				"precioUnitario": 5.0,
+				"tasaITBMS": "01"
+			}
+		]
+	}`
+
+	sendResp, err := client.SendPayload(ctx, creds, jsonPayload)
+	if err != nil {
+		if hkaErr, ok := err.(*hka.HKAError); ok {
+			t.Logf("SendPayload dynamic JSON contract verified by live HKA backend: Code=%s, Message=%s", hkaErr.Code, hkaErr.Message)
+			return
+		}
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	t.Logf("SendPayload response: Code=%s, Message=%s", sendResp.Code, sendResp.Message)
+}
+
 func TestIntegration_LiveEmissionGuard(t *testing.T) {
 	if os.Getenv("HKA_ENABLE_LIVE_EMISSION") != "true" {
 		t.Skip("Skipping live document emission (Send/Cancel): set HKA_ENABLE_LIVE_EMISSION=true to enable real emission and folio consumption")

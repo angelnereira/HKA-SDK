@@ -77,6 +77,27 @@ func NewFacturaExtranjera() *Builder {
 	return newBuilder(types.TipoDocFacturaExtranjera)
 }
 
+// NewFacturaGobierno creates a builder for an invoice to a Panamanian government entity (type 01, client 03).
+// Every item added must carry valid CPBS codes (CodigoCPBSAbrev, CodigoCPBS, UnidadMedidaCPBS).
+func NewFacturaGobierno() *Builder {
+	b := newBuilder(types.TipoDocFacturaInterna)
+	b.doc.DatosTransaccion.Cliente.TipoClienteFE = types.ClienteGobierno
+	b.doc.DatosTransaccion.Cliente.TipoContribuyente = types.ContribuyenteJuridico
+	b.doc.DatosTransaccion.Cliente.CodigoUbicacion = "8-8-8"
+	b.doc.DatosTransaccion.Cliente.Pais = types.CountryPA
+	return b
+}
+
+// NewFacturaConsumidorFinal creates a builder for a final-consumer domestic invoice (type 01, client 02).
+func NewFacturaConsumidorFinal() *Builder {
+	b := newBuilder(types.TipoDocFacturaInterna)
+	b.doc.DatosTransaccion.Cliente.TipoClienteFE = types.ClienteConsumidorFinal
+	b.doc.DatosTransaccion.Cliente.TipoContribuyente = types.ContribuyenteNatural
+	b.doc.DatosTransaccion.Cliente.CodigoUbicacion = "8-8-8"
+	b.doc.DatosTransaccion.Cliente.Pais = types.CountryPA
+	return b
+}
+
 // Exportacion attaches the export data block required for export invoices (type 03)
 // and any document whose DestinoOperacion is foreign.
 func (b *Builder) Exportacion(d types.DatosExportacion) *Builder {
@@ -101,5 +122,43 @@ func (b *Builder) Referencia(cufe string, fechaEmision time.Time) *Builder {
 // Retencion attaches a withholding block to the document.
 func (b *Builder) Retencion(r types.Retencion) *Builder {
 	b.doc.DatosTransaccion.Retencion = &r
+	b.doc.TotalesSubTotales.Retencion = &r
+	return b
+}
+
+// DescuentoGlobal attaches a document-level discount to the totals block.
+func (b *Builder) DescuentoGlobal(monto float64, descripcion string) *Builder {
+	b.doc.TotalesSubTotales.DescuentoBonificacion = &types.DescuentoBonificacion{
+		MontoDescuento:       fmtAmount(monto, totalDecimals),
+		DescripcionDescuento: descripcion,
+	}
+	return b
+}
+
+// Ubicacion sets or overrides the province-district-corregimiento code for the client.
+func (b *Builder) Ubicacion(codigo string) *Builder {
+	b.doc.DatosTransaccion.Cliente.CodigoUbicacion = codigo
+	return b
+}
+
+// AutorizadoDescarga adds an entity authorized to download this electronic document and its events.
+func (b *Builder) AutorizadoDescarga(tipo, ruc, dv, nombre string) *Builder {
+	b.doc.AutorizadosDescarga = append(b.doc.AutorizadosDescarga, types.AutorizadoDescarga{
+		TipoContribuyente: tipo,
+		RUCReceptor:       ruc,
+		DigitoVerifRUC:    dv,
+		NombreAutorizado:  nombre,
+	})
+	return b
+}
+
+// PedidoGlobal sets the global purchase order details.
+func (b *Builder) PedidoGlobal(numero string, fecha time.Time, monto float64, moneda string) *Builder {
+	b.doc.PedidoGlobal = &types.PedidoComercialGlobal{
+		NumeroPedido: numero,
+		FechaPedido:  formatDateTime(fecha),
+		MontoTotal:   fmtAmount(monto, totalDecimals),
+		MonedaPedido: moneda,
+	}
 	return b
 }

@@ -281,6 +281,15 @@ func (b *Builder) Build() (*types.DocumentoElectronico, error) {
 	if sumISC > 0 {
 		totals.TotalISC = fmtAmount(round(sumISC, totalDecimals), totalDecimals)
 	}
+	totals.DescuentoBonificacion = b.doc.TotalesSubTotales.DescuentoBonificacion
+	if b.doc.TotalesSubTotales.Retencion != nil {
+		totals.Retencion = b.doc.TotalesSubTotales.Retencion
+	} else if b.doc.DatosTransaccion.Retencion != nil {
+		totals.Retencion = b.doc.DatosTransaccion.Retencion
+	}
+	if totals.DescuentoBonificacion != nil {
+		totals.TotalDescuento = totals.DescuentoBonificacion.MontoDescuento
+	}
 
 	// Payment terms.
 	hasPlazo := len(b.pagosPlazo) > 0
